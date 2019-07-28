@@ -1,2 +1,2 @@
-# poseidon
-Apfell Golang macOS/Linux impant
+# apfellgo
+Golang Apfell Agent
