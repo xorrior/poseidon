@@ -11,14 +11,14 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/xorrior/apfellgo/pkg/commands/cat"
-	"github.com/xorrior/apfellgo/pkg/commands/ls"
-	"github.com/xorrior/apfellgo/pkg/commands/ps"
-	"github.com/xorrior/apfellgo/pkg/commands/screenshot"
-	"github.com/xorrior/apfellgo/pkg/commands/shell"
-	"github.com/xorrior/apfellgo/pkg/profiles"
-	"github.com/xorrior/apfellgo/pkg/utils/functions"
-	"github.com/xorrior/apfellgo/pkg/utils/structs"
+	"github.com/xorrior/poseidon/pkg/commands/cat"
+	"github.com/xorrior/poseidon/pkg/commands/ls"
+	"github.com/xorrior/poseidon/pkg/commands/ps"
+	"github.com/xorrior/poseidon/pkg/commands/screenshot"
+	"github.com/xorrior/poseidon/pkg/commands/shell"
+	"github.com/xorrior/poseidon/pkg/profiles"
+	"github.com/xorrior/poseidon/pkg/utils/functions"
+	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
 
 //export RunMain

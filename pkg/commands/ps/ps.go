@@ -3,7 +3,7 @@ package ps
 import (
 	"encoding/json"
 
-	"github.com/xorrior/apfellgo/pkg/utils/structs"
+	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
 
 // Taken directly from Sliver's PS command. License file included in the folder

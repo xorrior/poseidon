@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 
-	"github.com/xorrior/apfellgo/pkg/utils/structs"
+	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
 
 type DirectoryEntries struct {

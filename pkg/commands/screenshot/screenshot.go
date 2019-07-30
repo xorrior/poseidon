@@ -1,6 +1,6 @@
 package screenshot
 
-import "github.com/xorrior/apfellgo/pkg/utils/structs"
+import "github.com/xorrior/poseidon/pkg/utils/structs"
 
 //ScreenShot - interface for holding screenshot data
 type ScreenShot interface {
