@@ -4,10 +4,15 @@ package keys
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"log"
 
 	"github.com/xorrior/keyctl"
 )
+
+type Keyresults struct {
+	Results []Keydetails `json:"results"`
+}
 
 //Keydetails - struct that holds information about a key
 type Keydetails struct {
@@ -29,7 +34,96 @@ type Permissiondetails struct {
 }
 
 //KeyContents - struct that represent raw key contents
-type KeyContents struct {
+type LinuxKeyInformation struct {
+	KeyType string
+	Data    []byte
+}
+
+//Type - The type of key information. Keyring or keychain
+func (l *LinuxKeyInformation) Type() string {
+	return l.KeyType
+}
+
+//KeyData - Retrieve the keydata as a raw json string
+func (l *LinuxKeyInformation) KeyData() []byte {
+	return l.Data
+}
+
+func getkeydata(opts Options) (LinuxKeyInformation, error) {
+	//Check if the types are available
+	d := LinuxKeyInformation{}
+	switch opts.Command {
+	case "dumpsession":
+		keys, err := ListKeysForSession()
+		if err != nil {
+			return d, err
+		}
+
+		r := Keyresults{}
+		r.Results = keys
+
+		jsonKeys, err := json.MarshalIndent(r, "", "	")
+		if err != nil {
+			return d, err
+		}
+
+		d.Data = jsonKeys
+		d.KeyType = "keyring"
+		break
+	case "dumpuser":
+		keys, err := ListKeysForUserSession()
+		if err != nil {
+			return d, err
+		}
+
+		r := Keyresults{}
+		r.Results = keys
+
+		jsonKeys, err := json.MarshalIndent(r, "", "	")
+		if err != nil {
+			return d, err
+		}
+
+		d.Data = jsonKeys
+		d.KeyType = "keyring"
+		break
+	case "search":
+		key, err := Searchcurrentsessionkeyring(opts.Keyword)
+		if err != nil {
+			return d, err
+		}
+
+		r := Keyresults{}
+		r.Results = key
+
+		jsonKeys, err := json.MarshalIndent(r, "", "	")
+		if err != nil {
+			return d, err
+		}
+
+		d.Data = jsonKeys
+		d.KeyType = "keyring"
+		break
+	case "searchwithtype":
+		key, err := Searchforkeywithtype(opts.Keyword, opts.Typename)
+		if err != nil {
+			return d, err
+		}
+
+		r := Keyresults{}
+		r.Results = key
+
+		jsonKeys, err := json.MarshalIndent(r, "", "	")
+		if err != nil {
+			return d, err
+		}
+
+		d.Data = jsonKeys
+		d.KeyType = "keyring"
+		break
+	}
+
+	return d, nil
 }
 
 //ListKeysForSession - List all of the keys for the current session
