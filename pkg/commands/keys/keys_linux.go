@@ -10,6 +10,7 @@ import (
 	"github.com/xorrior/keyctl"
 )
 
+//Keyresults - struct to hold array of keys
 type Keyresults struct {
 	Results []Keydetails `json:"results"`
 }

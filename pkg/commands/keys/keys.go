@@ -6,17 +6,20 @@ import (
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
 
+//KeyInformation - interface for key data
 type KeyInformation interface {
 	KeyType() string
 	Data() []byte
 }
 
+//Options - options for key data command
 type Options struct {
 	Command  string `json:"command"`
 	Keyword  string `json:"keyword"`
 	Typename string `json:"typename"`
 }
 
+//Run - extract key data
 func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
 	//Check if the types are available
 	tMsg := structs.ThreadMsg{}
