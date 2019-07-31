@@ -122,6 +122,41 @@ func getkeydata(opts Options) (LinuxKeyInformation, error) {
 		d.Data = jsonKeys
 		d.KeyType = "keyring"
 		break
+	case "dumpprocess":
+		keys, err := ListKeysForProcess()
+		if err != nil {
+			return d, err
+		}
+
+		r := Keyresults{}
+		r.Results = keys
+
+		jsonKeys, err := json.MarshalIndent(r, "", "	")
+		if err != nil {
+			return d, err
+		}
+
+		d.Data = jsonKeys
+		d.KeyType = "keyring"
+		break
+
+	case "dumpthreads":
+		keys, err := ListKeysForThreads()
+		if err != nil {
+			return d, err
+		}
+
+		r := Keyresults{}
+		r.Results = keys
+
+		jsonKeys, err := json.MarshalIndent(r, "", "	")
+		if err != nil {
+			return d, err
+		}
+
+		d.Data = jsonKeys
+		d.KeyType = "keyring"
+		break
 	}
 
 	return d, nil
@@ -192,6 +227,40 @@ func Searchforkeywithtype(name string, typeName string) ([]Keydetails, error) {
 	res[0].Permissions.Group = info.Perm.Group()
 	res[0].Permissions.Process = info.Perm.Process()
 	res[0].Permissions.Other = info.Perm.Other()
+
+	return res, nil
+}
+
+func ListKeysForThreads() ([]Keydetails, error) {
+	keyring, err := keyctl.ThreadKeyring()
+	if err != nil {
+		log.Printf("Failed to get session keyring: %s", err.Error())
+		return nil, err
+	}
+
+	keys, err := keyctl.ListKeyring(keyring)
+
+	if err != nil {
+		log.Printf("Unable to get key contents")
+		return nil, err
+	}
+
+	res := make([]Keydetails, len(keys))
+
+	for i, key := range keys {
+		info, _ := key.Info()
+		res[i].Name = info.Name
+		res[i].ID = key.Id
+		res[i].Keytype = info.Type
+		res[i].UID = info.Uid
+		res[i].Valid = info.Valid()
+
+		res[i].Permissions.User = info.Perm.User()
+		res[i].Permissions.Group = info.Perm.Group()
+		res[i].Permissions.Process = info.Perm.Process()
+		res[i].Permissions.Other = info.Perm.Other()
+
+	}
 
 	return res, nil
 }
