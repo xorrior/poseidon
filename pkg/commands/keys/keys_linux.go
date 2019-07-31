@@ -37,7 +37,7 @@ type Permissiondetails struct {
 //KeyContents - struct that represent raw key contents
 type LinuxKeyInformation struct {
 	KeyType string
-	Data    []byte
+	KeyData []byte
 }
 
 //Type - The type of key information. Keyring or keychain
@@ -46,8 +46,8 @@ func (l *LinuxKeyInformation) Type() string {
 }
 
 //KeyData - Retrieve the keydata as a raw json string
-func (l *LinuxKeyInformation) KeyData() []byte {
-	return l.Data
+func (l *LinuxKeyInformation) Data() []byte {
+	return l.KeyData
 }
 
 func getkeydata(opts Options) (LinuxKeyInformation, error) {
