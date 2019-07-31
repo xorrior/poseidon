@@ -68,7 +68,7 @@ func getkeydata(opts Options) (LinuxKeyInformation, error) {
 			return d, err
 		}
 
-		d.Data = jsonKeys
+		d.KeyData = jsonKeys
 		d.KeyType = "keyring"
 		break
 	case "dumpuser":
@@ -85,7 +85,7 @@ func getkeydata(opts Options) (LinuxKeyInformation, error) {
 			return d, err
 		}
 
-		d.Data = jsonKeys
+		d.KeyData = jsonKeys
 		d.KeyType = "keyring"
 		break
 	case "search":
@@ -102,7 +102,7 @@ func getkeydata(opts Options) (LinuxKeyInformation, error) {
 			return d, err
 		}
 
-		d.Data = jsonKeys
+		d.KeyData = jsonKeys
 		d.KeyType = "keyring"
 		break
 	case "searchwithtype":
@@ -119,7 +119,7 @@ func getkeydata(opts Options) (LinuxKeyInformation, error) {
 			return d, err
 		}
 
-		d.Data = jsonKeys
+		d.KeyData = jsonKeys
 		d.KeyType = "keyring"
 		break
 	case "dumpprocess":
@@ -136,7 +136,7 @@ func getkeydata(opts Options) (LinuxKeyInformation, error) {
 			return d, err
 		}
 
-		d.Data = jsonKeys
+		d.KeyData = jsonKeys
 		d.KeyType = "keyring"
 		break
 
@@ -154,7 +154,7 @@ func getkeydata(opts Options) (LinuxKeyInformation, error) {
 			return d, err
 		}
 
-		d.Data = jsonKeys
+		d.KeyData = jsonKeys
 		d.KeyType = "keyring"
 		break
 	}

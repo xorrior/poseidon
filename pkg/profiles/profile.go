@@ -12,9 +12,10 @@ var (
 	UUID                         = "UUID"
 	ExchangeKeyString            = "T"
 	AesPSK                       = "AESPSK"
-	BaseURL                      = "http(s)://callbackhost:callbackport"
+	BaseURL                      = "http(s)://callback_host:callback_port/"
+	BaseURLs                     = []string{}
 	UserAgent                    = "Mozilla/5.0 (Macintosh; U; Intel Mac OS X; en) AppleWebKit/419.3 (KHTML, like Gecko) Safari/419.3" // Change this value
-	Sleep                        = 10
+	Sleep                        = 30
 	HostHeader                   = "" // Use an empty string if it's not being used
 	seededRand        *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
