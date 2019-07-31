@@ -3,13 +3,13 @@
 package keys
 
 type DarwinKeyOperation struct {
-	KeyType string
+	Type    string
 	KeyData []byte
 }
 
 // TODO: Implement function to enumerate macos keychain
 func (d *DarwinKeyOperation) KeyType() string {
-	return d.KeyType
+	return d.Type
 }
 
 func (d *DarwinKeyOperation) Data() []byte {

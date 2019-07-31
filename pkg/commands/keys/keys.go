@@ -43,6 +43,6 @@ func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
 		return
 	}
 
-	tMsg.TaskResult = res.KeyData()
+	tMsg.TaskResult = res.Data()
 	threadChannel <- tMsg
 }
