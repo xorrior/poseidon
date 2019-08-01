@@ -15,7 +15,7 @@ var (
 	BaseURL                      = "http(s)://callback_host:callback_port/"
 	BaseURLs                     = []string{}
 	UserAgent                    = "Mozilla/5.0 (Macintosh; U; Intel Mac OS X; en) AppleWebKit/419.3 (KHTML, like Gecko) Safari/419.3" // Change this value
-	Sleep                        = 30
+	Sleep                        = 10
 	HostHeader                   = "" // Use an empty string if it's not being used
 	seededRand        *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
@@ -34,8 +34,6 @@ type Profile interface {
 	Download(task structs.Task, params string)
 	// C2 profile implementation for uploading files
 	Upload(task structs.Task, fileid int) []byte
-	// C2 profile implementation for sending file downloads or screenshots in chunks
-	SendFileChunks(task structs.Task, fileData []byte)
 	// C2 profile implementation to generate a unique session ID
 	GenerateSessionID() string
 

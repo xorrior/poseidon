@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"strings"
 	"sync"
 	"time"
 
+	"github.com/xorrior/poseidon/pkg/commands/portscan"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/sync/semaphore"
@@ -41,8 +41,11 @@ type SSHTestParams struct {
 }
 
 type SSHResult struct {
-	Status  string
-	Success bool
+	Status   string `json:"status"`
+	Success  bool   `json:"success"`
+	Username string `json:"username"`
+	Secret   string `json:"secret"`
+	Host     string `json:"host"`
 }
 
 // SSH Functions
@@ -76,6 +79,18 @@ func SSHLogin(host string, port int, cred Credential, debug bool) {
 			Auth:            []ssh.AuthMethod{PublicKeyFile(cred.PrivateKey)},
 		}
 	}
+	// log.Println("Dialing:", host)
+	res := SSHResult{
+		Host:     host,
+		Username: cred.Username,
+	}
+	if cred.PrivateKey == "" {
+		res.Secret = cred.Password
+		// successStr = fmt.Sprintf("[SSH] Hostname: %s\tUsername: %s\tPassword: %s", host, cred.Username, cred.Password)
+	} else {
+		res.Secret = cred.PrivateKey
+		// successStr = fmt.Sprintf("[SSH] Hostname: %s\tUsername: %s\tPassword: %s", host, cred.Username, cred.PrivateKey)
+	}
 	connectionStr := fmt.Sprintf("%s:%d", host, port)
 	connection, err := ssh.Dial("tcp", connectionStr, sshConfig)
 	if err != nil {
@@ -83,9 +98,10 @@ func SSHLogin(host string, port int, cred Credential, debug bool) {
 			errStr := fmt.Sprintf("[DEBUG] Failed to dial: %s", err)
 			fmt.Println(errStr)
 		}
+		res.Success = false
+		sshResultChan <- res
 		return
 	}
-	res := SSHResult{}
 	session, err := connection.NewSession()
 	if err != nil {
 		res.Success = false
@@ -94,14 +110,8 @@ func SSHLogin(host string, port int, cred Credential, debug bool) {
 		return
 	}
 	session.Close()
-	var successStr string
-	if cred.PrivateKey == "" {
-		successStr = fmt.Sprintf("[SSH] Hostname: %s\tUsername: %s\tPassword: %s", host, cred.Username, cred.Password)
-	} else {
-		successStr = fmt.Sprintf("[SSH] Hostname: %s\tUsername: %s\tPassword: %s", host, cred.Username, cred.PrivateKey)
-	}
+
 	res.Success = true
-	res.Status = successStr
 	sshResultChan <- res
 }
 
@@ -181,6 +191,20 @@ func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
 		return
 	}
 
+	var totalHosts []string
+	for i := 0; i < len(params.Hosts); i++ {
+		newCidr, err := portscan.NewCIDR(params.Hosts[i])
+		if err != nil {
+			continue
+		} else {
+			// Iterate through every host in hostCidr
+			for j := 0; j < len(newCidr.Hosts); j++ {
+				totalHosts = append(totalHosts, newCidr.Hosts[j].PrettyName)
+			}
+			// cidrs = append(cidrs, newCidr)
+		}
+	}
+
 	if params.Port == 0 {
 		params.Port = 22
 	}
@@ -190,20 +214,25 @@ func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
 		Password:   params.Password,
 		PrivateKey: params.PrivateKey,
 	}
-
-	results := SSHBruteForce(params.Hosts, params.Port, []Credential{cred}, false)
+	// log.Println("Beginning brute force...")
+	results := SSHBruteForce(totalHosts, params.Port, []Credential{cred}, false)
+	// log.Println("Finished!")
 	if len(results) > 0 {
-		var resultStrings []string
-		resultStrings = append(resultStrings, fmt.Sprintf("[+] Authenticated to %d hosts successfully.\n", len(results)))
-		for i := 0; i < len(results); i++ {
-			resultStrings = append(resultStrings, results[i].Status)
+		data, err := json.MarshalIndent(results, "", "    ")
+		// // fmt.Println("Data:", string(data))
+		if err != nil {
+			log.Println("Error was not nil when marshalling!", err.Error())
+			tMsg.TaskResult = []byte(err.Error())
+			tMsg.Error = true
+		} else {
+			// fmt.Println("Sending on up the data:\n", string(data))
+			tMsg.TaskResult = data
+			tMsg.Error = false
 		}
-		// log.Println(resultStrings)
-		tMsg.TaskResult = []byte(strings.Join(resultStrings, "\n"))
 	} else {
 		// log.Println("No successful auths.")
 		tMsg.TaskResult = []byte("[-] No successful authentication attempts.")
+		tMsg.Error = false
 	}
-	tMsg.Error = false
 	threadChannel <- tMsg // Pass the thread msg back through the channel here
 }

