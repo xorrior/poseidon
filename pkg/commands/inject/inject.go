@@ -11,11 +11,14 @@ import (
 type Injection interface {
 	TargetPid() int
 	Shellcode() []byte
+	Success() bool
+	SharedLib() string
 }
 
 type Arguments struct {
 	PID              int    `json:"pid"`
 	EncodedShellcode string `json:"shellcode"`
+	LibraryPath      string `json:"library"`
 }
 
 func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
