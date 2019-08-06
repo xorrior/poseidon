@@ -1,4 +1,4 @@
-package inject
+package shinject
 
 import (
 	"encoding/json"

