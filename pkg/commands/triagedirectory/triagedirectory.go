@@ -145,6 +145,8 @@ func triageDirectory(triagePath string, result *DirectoryTriageResult) error {
 		if file.IsDir() {
 			if anySliceInString(file.Name(), interestingNames) {
 				addFileToDirectoryTriageResult(fullpath, file, result, &result.InterestingFiles)
+			} else if file.Name() == ".git" {
+				addFileToDirectoryTriageResult(fullpath, file, result, &result.InterestingFiles)
 			}
 			wg.Add(1)
 			go func(path string, dirtriage *DirectoryTriageResult) {
