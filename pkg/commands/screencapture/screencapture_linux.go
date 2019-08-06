@@ -1,6 +1,6 @@
 // +build linux
 
-package screenshot
+package screencapture
 
 import "errors"
 

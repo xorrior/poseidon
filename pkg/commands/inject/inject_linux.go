@@ -1,11 +1,24 @@
+// +build linux
+
 package inject
 
-import "C"
-import (
-	"syscall"
+/*
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
 
-	"github.com/tfogal/ptrace"
+static FILE *cgo_get_stdin(void)  { return stdin;  }
+static FILE *cgo_get_stdout(void) { return stdout; }
+static FILE *cgo_get_stderr(void) { return stderr; }
+*/
+
+import (
+	"C"
+	"unsafe"
 )
+
+type File C.FILE
 
 type LinuxInjection struct {
 	Target      int
@@ -30,9 +43,31 @@ func (l *LinuxInjection) SharedLib() string {
 	return l.LibraryPath
 }
 
-func injectShellcode(pid int, arch string, shellcode []byte) (LinuxInjection, error) {
-	oldregs := syscall.PtraceRegs{}
+func Open(path, mode string) *File {
+	cpath, cmode := C.CString(path), C.CString(mode)
+	defer C.free(unsafe.Pointer(cpath))
+	defer C.free(unsafe.Pointer(cmode))
+
+	return (*File)(C.fopen(cpath, cmode))
+}
+
+func (f *File) Put(str string) {
+	cstr := C.CString(str)
+	defer C.free(unsafe.Pointer(cstr))
+
+	C.fputs(cstr, (*C.FILE)(f))
+	return
+}
+
+func (f *File) Get(n int) string {
+	cbuf := make([]C.char, n)
+	return C.GoString(C.fgets(&cbuf[0], C.int(n), (*C.FILE)(f)))
+}
+
+func injectLibrary(pid int, path string) (LinuxInjection, error) {
 	res := LinuxInjection{}
+	/*oldregs := syscall.PtraceRegs{}
+
 	// Try to attach to the target process
 	traceeHandle, err := ptrace.Attach(pid)
 
@@ -45,7 +80,7 @@ func injectShellcode(pid int, arch string, shellcode []byte) (LinuxInjection, er
 
 	// wait for the target process to signal
 	wpid, err := syscall.Wait4(pid, &w, 0, &r)
-
+	log.Println("Pid ", wpid)
 	if err != nil {
 		return res, err
 	}
@@ -59,6 +94,8 @@ func injectShellcode(pid int, arch string, shellcode []byte) (LinuxInjection, er
 
 	oldregs = registers
 
-	oldcode := C.malloc(C.sizeof_char * 9076)
-
+	//oldcode := C.malloc(C.sizeof_char * 9076)
+	*/
+	res.Successful = false
+	return res, nil
 }

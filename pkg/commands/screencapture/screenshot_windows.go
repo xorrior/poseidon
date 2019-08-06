@@ -1,6 +1,6 @@
 // +build windows
 
-package screenshot
+package screencapture
 
 import (
 	"bytes"

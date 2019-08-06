@@ -31,6 +31,10 @@ func (l *WindowsInjection) Shellcode() []byte {
 	return l.Payload
 }
 
+func injectLibrary(pid int, lib string) (WindowsInjection, error) {
+	return WindowsInjection{}, errors.New("Not implemented for Windows.")
+}
+
 func injectShellcode(pid uint32, arch string, shellcode []byte) (WindowsInjection, error) {
 	// oldregs := syscall.PtraceRegs{}
 
