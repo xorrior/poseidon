@@ -1,4 +1,4 @@
-// +build patchthrough,linux darwin
+// +build restfulpatchthrough
 
 package profiles
 
@@ -47,7 +47,7 @@ type C2Patchthrough struct {
 	RsaPrivateKey  *rsa.PrivateKey
 }
 
-func (c C2Patchthrough) NewProfile() Profile {
+func newProfile() Profile {
 	return &C2Patchthrough{}
 }
 

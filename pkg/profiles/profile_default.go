@@ -1,4 +1,4 @@
-// +build default,linux darwin
+// +build default
 
 package profiles
 
@@ -34,7 +34,7 @@ type C2Default struct {
 	RsaPrivateKey  *rsa.PrivateKey
 }
 
-func (c C2Default) NewProfile() Profile {
+func newProfile() Profile {
 	return &C2Default{}
 }
 

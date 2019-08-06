@@ -36,11 +36,14 @@ type Profile interface {
 	Upload(task structs.Task, fileid string) []byte
 	// C2 profile implementation to generate a unique session ID
 	GenerateSessionID() string
+	// C2 profile helper function to send file chunks for file downloads and screenshots
+	SendFileChunks(task structs.Task, data []byte)
 
 	Header() string
 	SetHeader(hostname string)
 	URL() string
 	SetURL(url string)
+	SetURLs(urls []string)
 	SleepInterval() int
 	SetSleepInterval(interval int)
 	C2Commands() []string
@@ -57,4 +60,8 @@ type Profile interface {
 	SetAesPreSharedKey(newkey string)
 	RsaKey() *rsa.PrivateKey
 	SetRsaKey(newKey *rsa.PrivateKey)
+}
+
+func NewInstance() interface{} {
+	return newProfile()
 }
