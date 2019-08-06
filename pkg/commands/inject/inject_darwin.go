@@ -2,7 +2,7 @@
 
 package inject
 
-// #cgo CFLAGS: -g -Wall
+// #cgo LDFLAGS: -lm
 // #include <dlfcn.h>
 // #include <stdio.h>
 // #include <unistd.h>
@@ -83,11 +83,11 @@ package inject
 //     mach_msg_type_number_t    psetCount;
 //     kr = host_processor_sets (host_priv, psets, &psetCount);
 //
-//     printf("COUNT: %d\n", psetCount);
+//
 //     kr = host_processor_set_priv(host_priv, psDefault, &psDefault_control);
 //     if (kr != KERN_SUCCESS) { fprintf(stderr, "host_processor_set_priv failed with error %x\n", kr);  mach_error("host_processor_set_priv",kr); exit(1);}
 //
-//     printf("So far so good\n");
+//
 //
 //     numTasks=1000;
 //     kr = processor_set_tasks(psDefault_control, &tasks, &numTasks);
@@ -101,24 +101,24 @@ package inject
 //         //int rc=  proc_name(pid, name, 128);
 //         if (p == pid)
 //         {
-//             printf("Found task for pid %d\n", pid);
+//
 //             return tasks[i];
 //         }
 //     }
 //
-//     printf("Didn't find task for pid: %d\n",pid);
+//
 //     return 0;
 // }
-// int inject(int pi, const char* lib)
+// int inject(pid_t pid, char* lib)
 // {
-//	   pid_t pid = atoi(pi);
+//
 //     task_t remoteTask;
 //     struct stat buf;
 //
 //     int rc = stat (lib, &buf);
 //     if (rc != 0)
 //     {
-//         fprintf (stderr, "Unable to open library file %s (%s) - Cannot inject\n", lib,strerror (errno));
+//
 //         return (-9);
 //     }
 //
@@ -127,7 +127,7 @@ package inject
 //     remoteTask = taskForPidWrapper(pid);
 //     if (remoteTask == NULL)
 //     {
-//         printf("Failed to get task for pid\n");
+//
 //         exit(1);
 //     }
 //
@@ -137,20 +137,20 @@ package inject
 //
 //     if (kr != KERN_SUCCESS)
 // 	{
-// 		fprintf(stderr,"Unable to allocate memory for remote stack in thread: Error %s\n", mach_error_string(kr));
+//
 // 		return (-2);
 // 	}
-//     else
-//     {
-//         fprintf (stderr, "Allocated remote stack @0x%llx\n", remoteStack64);
-//     }
+//
+//
+//
+//
 //
 //     remoteCode64 = (vm_address_t) NULL;
 //     kr = mach_vm_allocate( remoteTask, &remoteCode64, CODE_SIZE, VM_FLAGS_ANYWHERE );
 //
 //     if (kr != KERN_SUCCESS)
 //     {
-//         fprintf(stderr,"Unable to allocate memory for remote code in thread: Error %s\n", mach_error_string(kr));
+//
 //         return (-2);
 //     }
 //
@@ -170,12 +170,12 @@ package inject
 //         if (memcmp (possiblePatchLocation, "PTHRDCRT", 8) == 0)
 //         {
 //             memcpy(possiblePatchLocation, &addrOfPthreadCreateFromMachThread,8);
-//             printf ("pthread_create_from_mach_thread 0x%x\n", addrOfPthreadCreateFromMachThread);
+//
 //         }
 //
 //         if (memcmp(possiblePatchLocation, "DLOPEN__", 6) == 0)
 //         {
-//             printf ("DLOpen 0x%x\n", addrOfDlopen);
+//
 //             memcpy(possiblePatchLocation, &addrOfDlopen, sizeof(uint64_t));
 //         }
 //
@@ -190,7 +190,7 @@ package inject
 //
 //     if (kr != KERN_SUCCESS)
 // 	{
-// 		fprintf(stderr,"Unable to write remote thread memory: Error %s\n", mach_error_string(kr));
+//
 // 		return (-3);
 // 	}
 //
@@ -198,7 +198,7 @@ package inject
 //     kr  = vm_protect(remoteTask, remoteStack64, STACK_SIZE, TRUE, VM_PROT_READ | VM_PROT_WRITE);
 //     if (kr != KERN_SUCCESS)
 // 	{
-// 		fprintf(stderr,"Unable to set memory permissions for remote thread: Error %s\n", mach_error_string(kr));
+//
 // 		return (-4);
 // 	}
 //
@@ -216,14 +216,14 @@ package inject
 //
 //     remoteThreadState64.__rsp = (u_int64_t) remoteStack64;
 //     remoteThreadState64.__rbp = (u_int64_t) remoteStack64;
-// 	printf ("Remote Stack 64  0x%llx, Remote code is %p\n", remoteStack64, p );
+//
 //
 //
 //     kr = thread_create_running( remoteTask, x86_THREAD_STATE64, (thread_state_t) &remoteThreadState64, x86_THREAD_STATE64_COUNT, &remoteThread );
 //
 //     if (kr != KERN_SUCCESS)
 //     {
-//         fprintf(stderr,"Unable to create remote thread: error %s", mach_error_string (kr));
+//
 // 		return (-3);
 //     }
 //
@@ -257,7 +257,10 @@ func (l *DarwinInjection) SharedLib() string {
 
 func injectLibrary(pid int, path string) (DarwinInjection, error) {
 	res := DarwinInjection{}
-	r := C.inject(C.int(pid), C.CString(path))
+	i := C.int(pid)
+	cpath := C.CString(path)
+
+	r := C.inject(i, cpath)
 	res.Successful = true
 	if r != 0 {
 		res.Successful = false

