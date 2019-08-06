@@ -1,6 +1,6 @@
 // +build darwin
 
-package screenshot
+package screencapture
 
 /*
 #cgo LDFLAGS: -framework CoreGraphics -framework CoreFoundation

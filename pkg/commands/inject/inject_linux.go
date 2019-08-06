@@ -1,3 +1,5 @@
+// +build linux
+
 package inject
 
 /*
@@ -5,17 +7,14 @@ package inject
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-// on mingw, stderr and stdout are defined as &_iob[FILENO]
-// on netbsd, they are defined as &__sF[FILENO]
-// and cgo doesn't recognize them, so write a function to get them,
-// instead of depending on internals of libc implementation.
+
 static FILE *cgo_get_stdin(void)  { return stdin;  }
 static FILE *cgo_get_stdout(void) { return stdout; }
 static FILE *cgo_get_stderr(void) { return stderr; }
 */
-import "C"
 
 import (
+	"C"
 	"unsafe"
 )
 
@@ -65,7 +64,7 @@ func (f *File) Get(n int) string {
 	return C.GoString(C.fgets(&cbuf[0], C.int(n), (*C.FILE)(f)))
 }
 
-func injectShellcode(pid int, shellcode []byte) (LinuxInjection, error) {
+func injectLibrary(pid int, path string) (LinuxInjection, error) {
 	res := LinuxInjection{}
 	/*oldregs := syscall.PtraceRegs{}
 
@@ -97,5 +96,6 @@ func injectShellcode(pid int, shellcode []byte) (LinuxInjection, error) {
 
 	//oldcode := C.malloc(C.sizeof_char * 9076)
 	*/
+	res.Successful = false
 	return res, nil
 }

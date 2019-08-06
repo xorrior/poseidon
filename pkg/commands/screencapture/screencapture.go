@@ -1,4 +1,4 @@
-package screenshot
+package screencapture
 
 import "github.com/xorrior/poseidon/pkg/utils/structs"
 
