@@ -21,20 +21,25 @@ type OSFile struct {
 }
 
 type DirectoryTriageResult struct {
-	mutex            sync.Mutex
-	AzureFiles       []OSFile `json:"azure_files"`
-	AWSFiles         []OSFile `json:"aws_files"`
-	SSHFiles         []OSFile `json:"ssh_files"`
-	HistoryFiles     []OSFile `json:"history_files"`
-	LogFiles         []OSFile `json:"log_files"`
-	ShellScriptFiles []OSFile `json:"shellscript_files"`
-	YAMLFiles        []OSFile `json:"yaml_files"`
-	ConfFiles        []OSFile `json:"conf_files"`
-	CSVFiles         []OSFile `json:"csv_files"`
-	DatabaseFiles    []OSFile `json:"db_files"`
-	MySqlConfFiles   []OSFile `json:"mysql_confs"`
-	KerberosFiles    []OSFile `json:"kerberos_tickets"`
-	InterestingFiles []OSFile `json:"interesting_files"`
+	mutex             sync.Mutex
+	AzureFiles        []OSFile `json:"azure_files"`
+	AWSFiles          []OSFile `json:"aws_files"`
+	SSHFiles          []OSFile `json:"ssh_files"`
+	MSWordFiles       []OSFile `json:"msword_files"`
+	MSExcelFiles      []OSFile `json:"msexcel_files"`
+	MSPowerPointFiles []OSFile `json:"mspptx_files"`
+	HistoryFiles      []OSFile `json:"history_files"`
+	PDFs              []OSFile `json:"pdfs"`
+	LogFiles          []OSFile `json:"log_files"`
+	ShellScriptFiles  []OSFile `json:"shellscript_files"`
+	YAMLFiles         []OSFile `json:"yaml_files"`
+	ConfFiles         []OSFile `json:"conf_files"`
+	CSVFiles          []OSFile `json:"csv_files"`
+	DatabaseFiles     []OSFile `json:"db_files"`
+	MySqlConfFiles    []OSFile `json:"mysql_confs"`
+	KerberosFiles     []OSFile `json:"kerberos_tickets"`
+	TextFiles         []OSFile `json:"text_files"`
+	InterestingFiles  []OSFile `json:"interesting_files"`
 }
 
 func NewDirectoryTriageResult() *DirectoryTriageResult {
@@ -147,7 +152,7 @@ func triageDirectory(triagePath string, result *DirectoryTriageResult) error {
 				triageDirectory(path, dirtriage)
 			}(fullpath, result)
 		} else {
-			if strings.Contains(fullpath, "/.ssh/") {
+			if strings.Contains(fullpath, string(os.PathSeparator)+".ssh"+string(os.PathSeparator)) {
 				switch file.Name() {
 				case "authorized_keys":
 					break
@@ -159,7 +164,7 @@ func triageDirectory(triagePath string, result *DirectoryTriageResult) error {
 					break
 				}
 				// Add any file within the AWS directory.
-			} else if strings.Contains(fullpath, "/.aws/") {
+			} else if strings.Contains(fullpath, string(os.PathSeparator)+".aws"+string(os.PathSeparator)) {
 				addFileToDirectoryTriageResult(fullpath, file, result, &result.AWSFiles)
 				// addFileToSlice(&result.AWSFiles, fullpath, file)
 				// Add all history files.
@@ -191,7 +196,7 @@ func triageDirectory(triagePath string, result *DirectoryTriageResult) error {
 				addFileToDirectoryTriageResult(fullpath, file, result, &result.MySqlConfFiles)
 				// addFileToSlice(&result.MySqlConfFiles, fullpath, file)
 				// Any azure files
-			} else if strings.Contains(fullpath, "/.azure/") {
+			} else if strings.Contains(fullpath, string(os.PathSeparator)+".azure"+string(os.PathSeparator)) {
 				addFileToDirectoryTriageResult(fullpath, file, result, &result.AzureFiles)
 				// addFileToSlice(&result.AzureFiles, fullpath, file)
 			} else if strings.HasSuffix(file.Name(), ".log") {
@@ -202,6 +207,21 @@ func triageDirectory(triagePath string, result *DirectoryTriageResult) error {
 				// addFileToSlice(&result.CSVFiles, fullpath, file)
 			} else if strings.HasSuffix(file.Name(), ".db") {
 				addFileToDirectoryTriageResult(fullpath, file, result, &result.DatabaseFiles)
+				// addFileToSlice(&result.DatabaseFiles, path, info)
+			} else if strings.HasSuffix(file.Name(), ".doc") || strings.HasSuffix(file.Name(), ".docx") {
+				addFileToDirectoryTriageResult(fullpath, file, result, &result.MSWordFiles)
+				// addFileToSlice(&result.DatabaseFiles, path, info)
+			} else if strings.HasSuffix(file.Name(), ".xls") || strings.HasSuffix(file.Name(), ".xlsx") {
+				addFileToDirectoryTriageResult(fullpath, file, result, &result.MSExcelFiles)
+				// addFileToSlice(&result.DatabaseFiles, path, info)
+			} else if strings.HasSuffix(file.Name(), ".ppt") || strings.HasSuffix(file.Name(), ".pptx") {
+				addFileToDirectoryTriageResult(fullpath, file, result, &result.MSPowerPointFiles)
+				// addFileToSlice(&result.DatabaseFiles, path, info)
+			} else if strings.HasSuffix(file.Name(), ".txt") {
+				addFileToDirectoryTriageResult(fullpath, file, result, &result.TextFiles)
+				// addFileToSlice(&result.DatabaseFiles, path, info)
+			} else if strings.HasSuffix(file.Name(), ".pdf") {
+				addFileToDirectoryTriageResult(fullpath, file, result, &result.PDFs)
 				// addFileToSlice(&result.DatabaseFiles, path, info)
 			}
 		}
