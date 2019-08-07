@@ -68,7 +68,7 @@ type TaskResponse struct {
 	Timestamp  string                   `json:"timestamp"`
 	Task       NestedApfellTaskResponse `json:"task"`
 	Response   string                   `json:"response"`
-	ResponseID int                      `json:"id"`
+	ResponseID string                   `json:"id"`
 	FileID     string                   `json:"file_id"`
 }
 
@@ -115,9 +115,10 @@ type FileUploadParams struct {
 
 // CheckInStruct used for Checkin messages to Apfell
 type CheckInStruct struct {
-	User string `json:"user"`
-	Host string `json:"host"`
-	Pid  int    `json:"pid"`
-	IP   string `json:"ip"`
-	UUID string `json:"uuid"`
+	User           string `json:"user"`
+	Host           string `json:"host"`
+	Pid            int    `json:"pid"`
+	IP             string `json:"ip"`
+	UUID           string `json:"uuid"`
+	IntegrityLevel int    `json:"integrity_level"`
 }

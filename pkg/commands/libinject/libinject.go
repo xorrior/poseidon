@@ -3,6 +3,7 @@ package libinject
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
@@ -44,6 +45,7 @@ func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
 	result, err := injectLibrary(args.PID, args.LibraryPath)
 
 	if err != nil {
+		log.Println("Failed to inject shellcode:", err.Error())
 		tMsg.Error = true
 		tMsg.TaskResult = []byte(err.Error())
 		threadChannel <- tMsg

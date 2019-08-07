@@ -16,6 +16,9 @@ type Process interface {
 	// PPid is the parent process ID for this process.
 	PPid() int
 
+	// Arch is the x64 or x86
+	Arch() string
+
 	// Executable name running this process. This is not a path to the
 	// executable.
 	Executable() string
@@ -32,6 +35,7 @@ type ProcessArray struct {
 type ProcessDetails struct {
 	ProcessID       int    `json:"process_id"`
 	ParentProcessID int    `json:"parent_process_id"`
+	Arch            string `json:"arch"`
 	Path            string `json:"path"`
 	User            string `json:"user"`
 }
@@ -53,6 +57,7 @@ func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
 
 	// Loop over the process results and add them to the json object array
 	for index := 0; index < len(procs); index++ {
+		p[index].Arch = procs[index].Arch()
 		p[index].ProcessID = procs[index].Pid()
 		p[index].ParentProcessID = procs[index].PPid()
 		p[index].User = procs[index].Owner()

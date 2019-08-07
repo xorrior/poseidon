@@ -27,3 +27,7 @@ func GetCurrentIPAddress() string {
 
 	return currIP
 }
+
+func IsElevated() bool {
+	return isElevated()
+}

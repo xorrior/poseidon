@@ -16,14 +16,14 @@ import (
 // UnixProcess is an implementation of Process
 // that contains Unix-specific fields and information.
 type UnixProcess struct {
-	pid   int
-	ppid  int
-	state rune
-	pgrp  int
-	sid   int
-
-	binary string
-	owner  string
+	pid          int
+	ppid         int
+	state        rune
+	pgrp         int
+	sid          int
+	architecture string
+	binary       string
+	owner        string
 }
 
 // Pid returns the process identifier
@@ -34,6 +34,10 @@ func (p *UnixProcess) Pid() int {
 // PPid returns the parent process identifier
 func (p *UnixProcess) PPid() int {
 	return p.ppid
+}
+
+func (p *UnixProcess) Arch() string {
+	return p.architecture
 }
 
 // Executable returns the process name

