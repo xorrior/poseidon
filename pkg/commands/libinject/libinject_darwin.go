@@ -1,6 +1,6 @@
 // +build darwin
 
-package inject
+package libinject
 
 // #cgo LDFLAGS: -lm
 // #include <dlfcn.h>

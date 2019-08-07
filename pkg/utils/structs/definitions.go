@@ -1,5 +1,15 @@
 package structs
 
+//Message - struct definition for external C2 messages
+type Message struct {
+	Tag    string `json:"tag"`
+	MType  int    `json:"mtype"`
+	IDType int    `json:"idtype"`
+	ID     string `json:"id"`
+	Enc    bool   `json:"enc"`
+	Data   string `json:"data"`
+}
+
 //ThreadMsg used to send task results back to the receiving channel
 type ThreadMsg struct {
 	TaskItem   Task

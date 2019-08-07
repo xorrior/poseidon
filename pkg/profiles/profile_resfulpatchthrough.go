@@ -335,8 +335,8 @@ func (c *C2Patchthrough) htmlGetData(url string) []byte {
 
 }
 
-//Download - download a file
-func (c *C2Patchthrough) Download(task structs.Task, params string) {
+//SendFile - download a file
+func (c *C2Patchthrough) SendFile(task structs.Task, params string) {
 	fileReq := structs.FileRegisterRequest{}
 	fileReq.Task = task.ID
 	path := task.Params

