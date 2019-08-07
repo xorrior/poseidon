@@ -26,7 +26,7 @@ import (
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
 import (
-	"log"
+
 
 	"github.com/xorrior/poseidon/pkg/commands/executeassembly"
 	"github.com/xorrior/poseidon/pkg/commands/shinject"
