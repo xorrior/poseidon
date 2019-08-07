@@ -1,4 +1,4 @@
-// +build websockets, linux darwin
+// +build websockets
 
 package profiles
 

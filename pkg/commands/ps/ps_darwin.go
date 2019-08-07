@@ -10,10 +10,11 @@ import (
 )
 
 type DarwinProcess struct {
-	pid    int
-	ppid   int
-	binary string
-	owner  string
+	pid          int
+	ppid         int
+	binary       string
+	architecture string
+	owner        string
 }
 
 func (p *DarwinProcess) Pid() int {
@@ -26,6 +27,10 @@ func (p *DarwinProcess) PPid() int {
 
 func (p *DarwinProcess) Executable() string {
 	return p.binary
+}
+
+func (p *DarwinProcess) Arch() string {
+	return p.architecture
 }
 
 func (p *DarwinProcess) Owner() string {
