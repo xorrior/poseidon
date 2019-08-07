@@ -403,21 +403,6 @@ func (c *C2Default) GetFile(fileid string) []byte {
 	return make([]byte, 0)
 }
 
-//Upload the data
-func (c *C2Default) Upload(task structs.Task, fileid string) []byte {
-
-	url := fmt.Sprintf("api/v1.3/files/%s/callbacks/%s", fileid, c.ApfellID)
-	encfileData := c.htmlGetData(fmt.Sprintf("%s/%s", c.BaseURL, url))
-
-	//decFileData := c.decryptMessage(encfileData)
-	if len(encfileData) > 0 {
-		rawData, _ := base64.StdEncoding.DecodeString(string(encfileData))
-		return rawData
-	}
-
-	return make([]byte, 0)
-}
-
 //SendFileChunks - Helper function to deal with file chunks (screenshots and file downloads)
 func (c *C2Default) SendFileChunks(task structs.Task, fileData []byte) {
 

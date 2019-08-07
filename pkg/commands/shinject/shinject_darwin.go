@@ -11,5 +11,5 @@ type DarwinInjection struct {
 }
 
 func injectShellcode(pid uint32, arch string, shellcode []byte) (DarwinInjection, error) {
-	return DarwinInjection{}, errors.New("Not implemented for non-windows.")
+	return DarwinInjection{}, errors.New("Not implemented for darwin.")
 }

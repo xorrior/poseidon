@@ -11,5 +11,5 @@ type LinuxInjection struct {
 }
 
 func injectShellcode(pid uint32, arch string, shellcode []byte) (LinuxInjection, error) {
-	return LinuxInjection{}, errors.New("Not implemented for non-windows.")
+	return LinuxInjection{}, errors.New("Not implemented for linux.")
 }

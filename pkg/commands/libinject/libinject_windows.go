@@ -1,6 +1,6 @@
 // +build windows
 
-package inject
+package libinject
 
 import "C"
 import (
