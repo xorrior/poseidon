@@ -1,4 +1,4 @@
-package inject
+package libinject
 
 import (
 	"encoding/json"

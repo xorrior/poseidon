@@ -323,8 +323,8 @@ func (c *C2Patchthrough) htmlGetData(url string) []byte {
 
 }
 
-//Download - download a file
-func (c *C2Patchthrough) Download(task structs.Task, params string) {
+//SendFile - download a file
+func (c *C2Patchthrough) SendFile(task structs.Task, params string) {
 	fileReq := structs.FileRegisterRequest{}
 	fileReq.Task = task.ID
 	path := task.Params
@@ -351,8 +351,8 @@ func (c *C2Patchthrough) Download(task structs.Task, params string) {
 	c.SendFileChunks(task, raw)
 }
 
-//Upload the data
-func (c *C2Patchthrough) Upload(task structs.Task, fileid string) []byte {
+//GetFile the data
+func (c *C2Patchthrough) GetFile(task structs.Task, fileid string) []byte {
 
 	strApfellID := fmt.Sprintf("%s", c.ApfID())
 	strFID := fmt.Sprintf("%s", fileid)
