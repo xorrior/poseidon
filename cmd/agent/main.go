@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"log"
 	"os/user"
 	"strconv"
 	"strings"

