@@ -110,6 +110,9 @@ func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
 	portStrings := strings.Split(params.Ports, ",")
 	// log.Println("Beginning portscan...")
 	results := doScan(params.Hosts, portStrings, task.Job)
+	if task.Job.Monitoring {
+		go task.Job.SendKill()
+	}
 	// log.Println("Finished!")
 	data, err := json.MarshalIndent(results, "", "    ")
 	// // fmt.Println("Data:", string(data))

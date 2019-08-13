@@ -66,6 +66,10 @@ func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
 	result := NewDirectoryTriageResult()
 	go task.Job.MonitorStop()
 	err := triageDirectory(task.Params, result, task.Job)
+	// If it didn't end prematurely, send the kill.
+	if task.Job.Monitoring {
+		go task.Job.SendKill()
+	}
 	// fmt.Println(result)
 	if err != nil {
 		// fmt.Println("Error was not nil!", err.Error())

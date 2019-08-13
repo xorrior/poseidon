@@ -38,7 +38,9 @@ func Run(args *Arguments, tMsg *structs.ThreadMsg, threadChannel chan<- structs.
 
 	// log.Println(fmt.Sprintf("From RUN, channel is: 0x%08d", tMsg.TaskItem.JobKillChan))
 	result, err := executeassembly(&args.AssemblyBytes, &args.Arguments, tMsg.TaskItem.Job)
-
+	if tMsg.TaskItem.Job.Monitoring {
+		go tMsg.TaskItem.Job.SendKill()
+	}
 	if err != nil {
 		// log.Println("Execute assembly returned error:", err.Error())
 		tMsg.TaskResult = []byte(err.Error())
