@@ -2,8 +2,6 @@ package executeassembly
 
 import (
 	"encoding/json"
-	"fmt"
-	"log"
 
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
@@ -38,11 +36,11 @@ func Run(args *Arguments, tMsg *structs.ThreadMsg, threadChannel chan<- structs.
 		loaderAssembly = args.LoaderBytes
 	}
 
-	log.Println(fmt.Sprintf("From RUN, channel is: 0x%08d", tMsg.TaskItem.JobKillChan))
-	result, err := executeassembly(&args.AssemblyBytes, &args.Arguments, tMsg.TaskItem.JobKillChan)
+	// log.Println(fmt.Sprintf("From RUN, channel is: 0x%08d", tMsg.TaskItem.JobKillChan))
+	result, err := executeassembly(&args.AssemblyBytes, &args.Arguments, tMsg.TaskItem.Job)
 
 	if err != nil {
-		log.Println("Execute assembly returned error:", err.Error())
+		// log.Println("Execute assembly returned error:", err.Error())
 		tMsg.TaskResult = []byte(err.Error())
 		tMsg.Error = true
 		threadChannel <- *tMsg

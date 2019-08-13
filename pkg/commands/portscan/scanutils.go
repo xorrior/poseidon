@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/xorrior/poseidon/pkg/utils/structs"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -168,9 +169,12 @@ func (server *host) ScanPortRanges(portList []PortRange, waitTime time.Duration)
 	}
 }
 
-func (cidrRange *CIDR) ScanHosts(portList []PortRange, waitTime time.Duration) {
+func (cidrRange *CIDR) ScanHosts(portList []PortRange, waitTime time.Duration, job *structs.Job) {
 	wg := sync.WaitGroup{}
 	for i := 0; i < len(cidrRange.Hosts); i++ {
+		if *job.Stop > 0 {
+			break
+		}
 		server := cidrRange.Hosts[i]
 		wg.Add(1)
 		go func(server *host, portList []PortRange, waitTime time.Duration) {

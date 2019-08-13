@@ -64,7 +64,8 @@ func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
 		return
 	}
 	result := NewDirectoryTriageResult()
-	err := triageDirectory(task.Params, result)
+	go task.Job.MonitorStop()
+	err := triageDirectory(task.Params, result, task.Job)
 	// fmt.Println(result)
 	if err != nil {
 		// fmt.Println("Error was not nil!", err.Error())
@@ -130,7 +131,7 @@ var interestingNames = []string{"secret", "password", "credential"}
 
 // Triage a specified home-path for interesting files, including:
 // See: DirectoryTriageResult
-func triageDirectory(triagePath string, result *DirectoryTriageResult) error {
+func triageDirectory(triagePath string, result *DirectoryTriageResult, job *structs.Job) error {
 	if _, err := os.Stat(triagePath); os.IsNotExist(err) {
 		return err
 	}
@@ -141,6 +142,9 @@ func triageDirectory(triagePath string, result *DirectoryTriageResult) error {
 	}
 	wg := sync.WaitGroup{}
 	for _, file := range files {
+		if *job.Stop > 0 {
+			break
+		}
 		fullpath := filepath.Join(triagePath, file.Name())
 		if file.IsDir() {
 			if anySliceInString(file.Name(), interestingNames) {
@@ -149,10 +153,10 @@ func triageDirectory(triagePath string, result *DirectoryTriageResult) error {
 				addFileToDirectoryTriageResult(fullpath, file, result, &result.InterestingFiles)
 			}
 			wg.Add(1)
-			go func(path string, dirtriage *DirectoryTriageResult) {
+			go func(path string, dirtriage *DirectoryTriageResult, job *structs.Job) {
 				defer wg.Done()
-				triageDirectory(path, dirtriage)
-			}(fullpath, result)
+				triageDirectory(path, dirtriage, job)
+			}(fullpath, result, job)
 		} else {
 			if strings.Contains(fullpath, string(os.PathSeparator)+".ssh"+string(os.PathSeparator)) {
 				switch file.Name() {

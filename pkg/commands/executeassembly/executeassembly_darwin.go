@@ -1,8 +1,12 @@
 // +build darwin
 package executeassembly
 
-import "errors"
+import (
+	"errors"
 
-func executeassembly(assembly *[]byte, params *string, jobKillChan chan<- int) (AssemblyOutput, error) {
+	"github.com/xorrior/poseidon/pkg/utils/structs"
+)
+
+func executeassembly(assembly *[]byte, params *string, job *structs.Job) (AssemblyOutput, error) {
 	return AssemblyOutput{}, errors.New("Not implemented for darwin.")
 }

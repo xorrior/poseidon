@@ -1,5 +1,10 @@
 package structs
 
+import (
+	"log"
+	"time"
+)
+
 //Message - struct definition for external C2 messages
 type Message struct {
 	Tag    string `json:"tag"`
@@ -18,10 +23,10 @@ type ThreadMsg struct {
 
 // Task used to define a task received from apfell
 type Task struct {
-	Command     string     `json:"command"`
-	Params      string     `json:"params"`
-	ID          string     `json:"id"`
-	JobKillChan chan (int) `json:""`
+	Command string `json:"command"`
+	Params  string `json:"params"`
+	ID      string `json:"id"`
+	Job     *Job
 }
 
 // TaskStub to post list of currently processing tasks.
@@ -29,6 +34,15 @@ type TaskStub struct {
 	Command string `json:"command"`
 	Params  string `json:"params"`
 	ID      string `json:"id"`
+}
+
+// Job struct that will listen for messages on the kill channel,
+// set the Stop param to an exit code, and checks if it's in a
+// monitoring state.
+type Job struct {
+	KillChannel chan (int)
+	Stop        *int
+	Monitoring  bool
 }
 
 // ClientResponse used to define a task response struct
@@ -128,4 +142,41 @@ type CheckInStruct struct {
 	IP             string `json:"ip"`
 	UUID           string `json:"uuid"`
 	IntegrityLevel int    `json:"integrity_level"`
+}
+
+// MonitorStop tells the job that it needs to wait for a kill signal.
+// The individual module is required to listen for the job.Stop
+// variable to be > 0, and take requisite actions to tear-down.
+func (j *Job) MonitorStop() {
+	if !j.Monitoring {
+		j.Monitoring = true
+		for {
+			select {
+			case <-j.KillChannel:
+				log.Println("Got kill message for job")
+				*j.Stop = 1
+				j.Monitoring = false
+				return
+			default:
+				// …
+				// log.Println("Sleeping in the kill chan...")
+				time.Sleep(time.Second)
+			}
+		}
+	}
+}
+
+// SendKill sends a kill message to the channel.
+func (j *Job) SendKill() {
+	j.KillChannel <- 1
+}
+
+// ToStub converts a Task item to a TaskStub that's easily
+// transportable between client and server.
+func (t *Task) ToStub() TaskStub {
+	return TaskStub{
+		Command: t.Command,
+		ID:      t.ID,
+		Params:  t.Params,
+	}
 }

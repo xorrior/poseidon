@@ -19,7 +19,7 @@ type PortScanParams struct {
 	Ports string   `json:"ports"`
 }
 
-func doScan(hostList []string, portListStrs []string) []CIDR {
+func doScan(hostList []string, portListStrs []string, job *structs.Job) []CIDR {
 	// Variable declarations
 	timeout := time.Duration(500) * time.Millisecond
 	var portList []PortRange
@@ -64,13 +64,14 @@ func doScan(hostList []string, portListStrs []string) []CIDR {
 
 	var results []CIDR
 	// Scan the hosts
+	go job.MonitorStop()
 	for i := 0; i < len(hostList); i++ {
 		newCidr, err := NewCIDR(hostList[i])
 		if err != nil {
 			continue
 		} else {
 			// Iterate through every host in hostCidr
-			newCidr.ScanHosts(portList, timeout)
+			newCidr.ScanHosts(portList, timeout, job)
 			results = append(results, *newCidr)
 			// cidrs = append(cidrs, newCidr)
 		}
@@ -108,7 +109,7 @@ func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
 
 	portStrings := strings.Split(params.Ports, ",")
 	// log.Println("Beginning portscan...")
-	results := doScan(params.Hosts, portStrings)
+	results := doScan(params.Hosts, portStrings, task.Job)
 	// log.Println("Finished!")
 	data, err := json.MarshalIndent(results, "", "    ")
 	// // fmt.Println("Data:", string(data))
