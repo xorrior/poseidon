@@ -7,7 +7,7 @@ Build the agent _either_ on the target operating system you wish to run the agen
 
 `go build -tags=default cmd/agent/main.go`
 or
-`go build -tags=patchthrough cmd/agent/main.go`
+`go build -tags=restfulpatchthrough cmd/agent/main.go`
 
 ## Supported Commands
 ```
