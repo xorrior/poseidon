@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/xorrior/poseidon/pkg/commands/cat"
+	"github.com/xorrior/poseidon/pkg/commands/executeassembly"
 	"github.com/xorrior/poseidon/pkg/commands/getprivs"
 	"github.com/xorrior/poseidon/pkg/commands/keys"
 	"github.com/xorrior/poseidon/pkg/commands/libinject"
@@ -19,13 +20,12 @@ import (
 	"github.com/xorrior/poseidon/pkg/commands/ps"
 	"github.com/xorrior/poseidon/pkg/commands/screencapture"
 	"github.com/xorrior/poseidon/pkg/commands/shell"
+	"github.com/xorrior/poseidon/pkg/commands/shinject"
 	"github.com/xorrior/poseidon/pkg/commands/sshauth"
 	"github.com/xorrior/poseidon/pkg/commands/triagedirectory"
 	"github.com/xorrior/poseidon/pkg/profiles"
 	"github.com/xorrior/poseidon/pkg/utils/functions"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
-	"github.com/xorrior/poseidon/pkg/commands/executeassembly"
-	"github.com/xorrior/poseidon/pkg/commands/shinject"
 )
 
 var assemblyFetched int = 0

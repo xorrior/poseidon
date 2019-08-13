@@ -6,6 +6,7 @@ type Message struct {
 	MType  int    `json:"mtype"`
 	IDType int    `json:"idtype"`
 	ID     string `json:"id"`
+	Client bool `json:"client"`
 	Data   string `json:"data"`
 }
 

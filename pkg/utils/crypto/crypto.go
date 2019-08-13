@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 )
 
 // PKCS7 errors.
@@ -59,7 +58,7 @@ func RsaDecryptCipherBytes(encryptedData []byte, privateKey *rsa.PrivateKey) []b
 	decryptedData, err := rsa.DecryptOAEP(hash, rand.Reader, privateKey, encryptedData, nil)
 	//decryptedData, err := rsa.DecryptPKCS1v15(rand.Reader, privateKey, encryptedData)
 	if err != nil {
-		log.Println("Failed to decrypt data with: ", err.Error())
+		//log.Println("Failed to decrypt data with: ", err.Error())
 		return make([]byte, 0)
 	}
 

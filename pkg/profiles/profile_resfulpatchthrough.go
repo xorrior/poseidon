@@ -250,7 +250,7 @@ func (c *C2Patchthrough) htmlPostData(urlEnding string, sendData []byte) []byte 
 	//log.Println("Posting to URL:", url)
 	// If the AesPSK is set, encrypt the data we send
 	if len(c.AesPSK) != 0 {
-		sendData = c.encryptMessage(sendData)
+		sendData = EncryptMessage(sendData)
 	}
 
 	contentLength := len(sendData)
@@ -484,7 +484,7 @@ func (c *C2Patchthrough) NegotiateKey() string {
 	//log.Println("Returning sessionID:", sessionID)
 	return sessionID
 }
-func (c *C2Patchthrough) encryptMessage(msg []byte) []byte {
+func (c *C2Patchthrough) EncryptMessage(msg []byte) []byte {
 	key, _ := base64.StdEncoding.DecodeString(c.AesPSK)
 	return []byte(base64.StdEncoding.EncodeToString(crypto.AesEncrypt(key, msg)))
 }
