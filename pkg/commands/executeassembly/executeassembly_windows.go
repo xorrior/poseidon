@@ -14,17 +14,20 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/xorrior/poseidon/pkg/utils/structs"
 	"github.com/xorrior/poseidon/pkg/utils/winapi"
 )
 
 const (
 	BobLoaderOffset     = 0x00000af0
 	MAX_ASSEMBLY_LENGTH = 1025024
+	STILL_ACTIVE        = 259
 )
 
 // ExecuteAssembly loads a .NET CLR hosting DLL inside a notepad.exe process
 // along with a provided .NET assembly to execute.
-func executeassembly(assembly *[]byte, params *string) (AssemblyOutput, error) {
+func executeassembly(assembly *[]byte, params *string, job *structs.Job) (AssemblyOutput, error) {
+	go job.MonitorStop()
 	results := AssemblyOutput{}
 	log.Println("[*] Assembly size:", len(*assembly))
 	log.Println("[*] Hosting dll size:", len(loaderAssembly))
@@ -89,18 +92,25 @@ func executeassembly(assembly *[]byte, params *string) (AssemblyOutput, error) {
 	}
 	log.Printf("Got thread handle: 0x%08x\n", threadHandle)
 	for {
+		if *job.Stop > 0 {
+			// log.Println("From main EXE loop we see kill message")
+			// Init kill sequence
+			break
+		}
 		code, err := winapi.GetExitCodeThread(threadHandle)
-		log.Println(code)
 		if err != nil && !strings.Contains(err.Error(), "operation completed successfully") {
 			log.Fatalln(err.Error())
 		}
-		if code == 259 {
-			time.Sleep(1000 * time.Millisecond)
+		if code == STILL_ACTIVE {
+			time.Sleep(time.Second)
 		} else {
 			break
 		}
 	}
 	cmd.Process.Kill()
+	// if *kill > 0 {
+	// 	return results, errors.New("Job killed.")
+	// }
 	go func() {
 		_, errStdout = io.Copy(&stdoutBuf, stdoutIn)
 	}()

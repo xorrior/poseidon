@@ -4,6 +4,7 @@ package shell
 
 import (
 	"errors"
+	"fmt"
 	"os/exec"
 
 	"github.com/google/shlex"
@@ -26,17 +27,13 @@ func (d *WindowsShell) Response() []byte {
 }
 
 func shellExec(c string) (Shell, error) {
-
+	c = fmt.Sprintf("cmd.exe /c %s", c)
 	args, _ := shlex.Split(c)
-	if len(args) == 0 {
+	if len(args) < 3 {
 		return nil, errors.New("Not enough arguments given for shell command.")
 	}
-	var cmd *exec.Cmd
-	if len(args) == 1 {
-		cmd = exec.Command(args[0])
-	} else {
-		cmd = exec.Command(args[0], args[1:]...)
-	}
+
+	cmd := exec.Command(args[0], args[1:]...)
 
 	r := &WindowsShell{}
 

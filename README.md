@@ -53,3 +53,12 @@ execute-assembly    Execute a .NET assembly.
 | portscan | &#9745; | &#9745; | &#9745; |
 | getprivs | &#9745; |  |  |
 | execute-assembly | &#9745; |  |  |
+| jobs | &#9745; | &#9745; | &#9745; |
+| jobkill | &#9745; | &#9745; | &#9745; |
+
+## Killable Jobs
+
+Due to the way Go-routines function, it's difficult if not impossible to kill them. As a result, only certain long-running tasks are able to receive a "kill" signal. The current list of killable jobs are:
+- `executeassembly`
+- `triagedirectory`
+- `portscan`
