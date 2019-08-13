@@ -9,10 +9,10 @@ import (
 )
 
 var (
-	UUID                         = "UUID"
+	UUID                         = "8003c39e-f967-4981-adf0-d42e09a3202a"
 	ExchangeKeyString            = "T"
-	AesPSK                       = "AESPSK"
-	BaseURL                      = "http(s)://callback_host:callback_port/"
+	AesPSK                       = "oLRANTsFUwT6Lz85rfz05YVS8ugreGizo1bHtWDyRsY="
+	BaseURL                      = "http://192.168.193.140:9000/"
 	BaseURLs                     = []string{}
 	UserAgent                    = "Mozilla/5.0 (Macintosh; U; Intel Mac OS X; en) AppleWebKit/419.3 (KHTML, like Gecko) Safari/419.3" // Change this value
 	Sleep                        = 10

@@ -18,6 +18,14 @@ type ThreadMsg struct {
 
 // Task used to define a task received from apfell
 type Task struct {
+	Command     string     `json:"command"`
+	Params      string     `json:"params"`
+	ID          string     `json:"id"`
+	JobKillChan chan (int) `json:""`
+}
+
+// TaskStub to post list of currently processing tasks.
+type TaskStub struct {
 	Command string `json:"command"`
 	Params  string `json:"params"`
 	ID      string `json:"id"`

