@@ -7,7 +7,7 @@ import (
 	"path"
 	"syscall"
 
-	"github.com/xorrior/pkg/utils/functions"
+	"github.com/xorrior/poseidon/pkg/utils/functions"
 )
 
 func getDrive(path string) Drive {
