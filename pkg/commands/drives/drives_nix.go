@@ -6,6 +6,8 @@ import (
 	"os"
 	"path"
 	"syscall"
+
+	"github.com/xorrior/pkg/utils/functions"
 )
 
 func getDrive(path string) Drive {
