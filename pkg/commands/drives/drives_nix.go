@@ -2,6 +2,9 @@
 package drives
 
 import (
+	"io/ioutil"
+	"os"
+	"path"
 	"syscall"
 )
 
@@ -27,24 +30,24 @@ func getDrive(path string) Drive {
 func listDrives() ([]Drive, error) {
 	var drives []Drive
 	drives = append(drives, getDrive("/"))
-	
+
 	_, err := os.Stat("/mnt/")
 	if err == nil {
 		files, err := ioutil.ReadDir("/mnt/")
 		if err == nil {
 			for _, f := range files {
-				fp := path.Join("/mnt/", f.Name()
+				fp := path.Join("/mnt/", f.Name())
 				drives = append(drives, getDrive(fp))
 			}
 		}
 	}
 
-	_, err := os.Stat("/Volumes/")
+	_, err = os.Stat("/Volumes/")
 	if err == nil {
 		files, err := ioutil.ReadDir("/Volumes/")
 		if err == nil {
 			for _, f := range files {
-				fp := path.Join("/Volumes/", f.Name()
+				fp := path.Join("/Volumes/", f.Name())
 				drives = append(drives, getDrive(fp))
 			}
 		}
