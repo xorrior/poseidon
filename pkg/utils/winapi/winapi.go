@@ -3,10 +3,12 @@
 package winapi
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strings"
 	"syscall"
+	"unicode/utf16"
 	"unsafe"
 )
 
@@ -82,14 +84,18 @@ type TOKEN_PRIVILEGES struct {
 }
 
 const (
-	PROCESS_ALL_ACCESS        = syscall.STANDARD_RIGHTS_REQUIRED | syscall.SYNCHRONIZE | 0xfff
-	MEM_COMMIT                = 0x001000
-	MEM_RESERVE               = 0x002000
-	PROCESS_QUERY_INFORMATION = 0x0400
-	SecurityAnonymous         = 0
-	SecurityIdentification    = 1
-	SecurityImpersonation     = 2
-	SecurityDelegation        = 3
+	// http://www.delphigroups.info/2/0e/484036.html
+	MAX_BUFFER_LENGTH                       = 32767
+	ERROR_moreData            syscall.Errno = 234
+	MAX_PATH                                = 260
+	PROCESS_ALL_ACCESS                      = syscall.STANDARD_RIGHTS_REQUIRED | syscall.SYNCHRONIZE | 0xfff
+	MEM_COMMIT                              = 0x001000
+	MEM_RESERVE                             = 0x002000
+	PROCESS_QUERY_INFORMATION               = 0x0400
+	SecurityAnonymous                       = 0
+	SecurityIdentification                  = 1
+	SecurityImpersonation                   = 2
+	SecurityDelegation                      = 3
 	// TokenPrimary              TokenType = 1
 	// TokenImpersonation        TokenType = 2
 	STANDARD_RIGHTS_REQUIRED = 0x000F
@@ -126,13 +132,16 @@ const (
 )
 
 var (
-	kernel32               = syscall.MustLoadDLL("kernel32.dll")
-	procVirtualAllocEx     = kernel32.MustFindProc("VirtualAllocEx")
-	procVirtualProtectEx   = kernel32.MustFindProc("VirtualProtectEx")
-	procWriteProcessMemory = kernel32.MustFindProc("WriteProcessMemory")
-	procCreateRemoteThread = kernel32.MustFindProc("CreateRemoteThread")
-	procGetExitCodeThread  = kernel32.MustFindProc("GetExitCodeThread")
-	procIsWow64Process     = kernel32.MustFindProc("IsWow64Process")
+	kernel32                   = syscall.MustLoadDLL("kernel32.dll")
+	procVirtualAllocEx         = kernel32.MustFindProc("VirtualAllocEx")
+	procVirtualProtectEx       = kernel32.MustFindProc("VirtualProtectEx")
+	procWriteProcessMemory     = kernel32.MustFindProc("WriteProcessMemory")
+	procCreateRemoteThread     = kernel32.MustFindProc("CreateRemoteThread")
+	procGetExitCodeThread      = kernel32.MustFindProc("GetExitCodeThread")
+	procIsWow64Process         = kernel32.MustFindProc("IsWow64Process")
+	procGetLogicalDriveStrings = kernel32.MustFindProc("GetLogicalDriveStringsW")
+	procGetVolumeInformation   = kernel32.MustFindProc("GetVolumeInformationW")
+	procGetDiskFreeSpaceEx     = kernel32.MustFindProc("GetDiskFreeSpaceExW")
 )
 
 func GetExitCodeThread(threadHandle syscall.Handle) (uint32, error) {
@@ -478,4 +487,130 @@ func IsAdministrator() bool {
 		}
 	}
 	return false
+}
+
+/*
+DWORD GetLogicalDriveStringsW(
+  DWORD  nBufferLength,
+  LPWSTR lpBuffer
+);
+*/
+func GetLogicalDriveStrings() ([]string, error) {
+	lpBuffer := new([MAX_PATH + 1]uint16)
+	lpBufferPtr := unsafe.Pointer(lpBuffer)
+	r1, _, e1 := procGetLogicalDriveStrings.Call(MAX_PATH, uintptr(lpBufferPtr))
+	if r1 == 0 {
+		log.Println(e1.Error())
+		return []string{}, nil
+	}
+	drives := UTF16ToString(lpBuffer[:])
+	return drives, nil
+}
+
+/*
+BOOL GetVolumeInformationW(
+  LPCWSTR lpRootPathName,
+  LPWSTR  lpVolumeNameBuffer,
+  DWORD   nVolumeNameSize,
+  LPDWORD lpVolumeSerialNumber,
+  LPDWORD lpMaximumComponentLength,
+  LPDWORD lpFileSystemFlags,
+  LPWSTR  lpFileSystemNameBuffer,
+  DWORD   nFileSystemNameSize
+);*/
+func GetVolumeInformation(drive string) ([]string, error) {
+	drivePtr := unsafe.Pointer(syscall.StringToUTF16Ptr(drive))
+	volName := new([MAX_PATH]uint16)
+	volNamePtr := unsafe.Pointer(volName)
+	r1, _, e1 := procGetVolumeInformation.Call(
+		uintptr(drivePtr),
+		uintptr(volNamePtr),
+		MAX_PATH,
+		0,
+		0,
+		0,
+		0,
+		0,
+	)
+	if r1 == 0 {
+		return []string{}, e1
+	}
+	return UTF16ToString(volName[:]), nil
+}
+
+/*
+BOOL GetDiskFreeSpaceExW(
+	LPCWSTR         lpDirectoryName,
+	PULARGE_INTEGER lpFreeBytesAvailableToCaller,
+	PULARGE_INTEGER lpTotalNumberOfBytes,
+	PULARGE_INTEGER lpTotalNumberOfFreeBytes
+  );
+*/
+func GetDiskFreeSpaceEx(disk string) (uint64, uint64, uint64, error) {
+	freeBytesAvailableToCaller := new(uint64)
+	totalNumberOfBytes := new(uint64)
+	totalNumberOfFreeBytes := new(uint64)
+
+	lpDirectoryName := unsafe.Pointer(syscall.StringToUTF16Ptr(disk))
+	lpFreeBytesAvailableToCaller := unsafe.Pointer(freeBytesAvailableToCaller)
+	lpTotalNumberOfBytes := unsafe.Pointer(totalNumberOfBytes)
+	lpTotalNumberOfFreeBytes := unsafe.Pointer(totalNumberOfFreeBytes)
+	r1, _, e1 := procGetDiskFreeSpaceEx.Call(
+		uintptr(lpDirectoryName),
+		uintptr(lpFreeBytesAvailableToCaller),
+		uintptr(lpTotalNumberOfBytes),
+		uintptr(lpTotalNumberOfFreeBytes),
+	)
+	if r1 == 0 {
+		return 0, 0, 0, e1
+	}
+	return *freeBytesAvailableToCaller, *totalNumberOfBytes, *totalNumberOfFreeBytes, nil
+}
+
+// Helper function to convert DWORD byte counts to
+// human readable sizes.
+func UINT32ByteCountDecimal(b uint32) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := uint32(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float32(b)/float32(div), "kMGTPE"[exp])
+}
+
+// Helper function to convert LARGE_INTEGER byte
+//  counts to human readable sizes.
+func UINT64ByteCountDecimal(b uint64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := uint64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "kMGTPE"[exp])
+}
+
+// Helper function to build a string from a WCHAR string
+func UTF16ToString(s []uint16) []string {
+	var results []string
+	cut := 0
+	for i, v := range s {
+		if v == 0 {
+			if i-cut > 0 {
+				results = append(results, string(utf16.Decode(s[cut:i])))
+			}
+			cut = i + 1
+		}
+	}
+	if cut < len(s) {
+		results = append(results, string(utf16.Decode(s[cut:])))
+	}
+	return results
 }

