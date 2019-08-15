@@ -2,6 +2,7 @@ package kill
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"syscall"
 
@@ -23,7 +24,16 @@ func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
 		return
 	}
 
-	syscall.Kill(pid, syscall.SIGKILL)
+	p, err := os.FindProcess(pid)
+
+	if err != nil {
+		tMsg.TaskResult = []byte(err.Error())
+		tMsg.Error = true
+		threadChannel <- tMsg
+		return
+	}
+
+	p.Signal(syscall.SIGKILL)
 
 	tMsg.TaskResult = []byte(fmt.Sprintf("Killed process with PID %s", task.Params))
 	threadChannel <- tMsg

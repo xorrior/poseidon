@@ -34,6 +34,7 @@ import (
 	"github.com/xorrior/poseidon/pkg/commands/drives"
 	"github.com/xorrior/poseidon/pkg/commands/getenv"
 	"github.com/xorrior/poseidon/pkg/commands/getuser"
+	"github.com/xorrior/poseidon/pkg/commands/kill"
 	"github.com/xorrior/poseidon/pkg/commands/mkdir"
 	"github.com/xorrior/poseidon/pkg/commands/mv"
 	"github.com/xorrior/poseidon/pkg/commands/pwd"
@@ -134,6 +135,7 @@ func main() {
 		"getenv":           30,
 		"setenv":           31,
 		"unsetenv":         32,
+		"kill":             33,
 		"none":             NONE_CODE,
 	}
 
@@ -413,6 +415,8 @@ func main() {
 				go setenv.Run(task, res)
 			case 32:
 				go unsetenv.Run(task, res)
+			case 33:
+				go kill.Run(task, res)
 			case NONE_CODE:
 				// No tasks, do nothing
 				break

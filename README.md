@@ -39,6 +39,7 @@ getprivs            Enable as many privileges as possible for your current acces
 execute-assembly    Execute a .NET assembly.
 jobs                List currently running and stoppable jobs.
 jobkill             Kill a job by the specified GUID.
+kill                Kill a process designated by PID.
 cp                  Copy a file.
 mv                  Move a file.
 rm                  Delete a file.
@@ -75,6 +76,7 @@ unsetenv            Delete an environment variable.
 | execute-assembly | &#9745; |  |  |
 | jobs | &#9745; | &#9745; | &#9745; |
 | jobkill | &#9745; | &#9745; | &#9745; |
+| kill |  &#9745; | &#9745; | &#9745; |
 | cp | &#9745; | &#9745; | &#9745; |
 | mv | &#9745; | &#9745; | &#9745; |
 | rm | &#9745; | &#9745; | &#9745; |
