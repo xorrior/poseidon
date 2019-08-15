@@ -39,10 +39,11 @@ import (
 	"github.com/xorrior/poseidon/pkg/commands/pwd"
 	"github.com/xorrior/poseidon/pkg/commands/rm"
 	"github.com/xorrior/poseidon/pkg/commands/setenv"
+	"github.com/xorrior/poseidon/pkg/commands/unsetenv"
 )
 
 const (
-	NONE_CODE = 30
+	NONE_CODE = 100
 	EXIT_CODE = 0
 )
 
@@ -130,9 +131,10 @@ func main() {
 		"mv":               27,
 		"pwd":              28,
 		"rm":               29,
+		"getenv":           30,
+		"setenv":           31,
+		"unsetenv":         32,
 		"none":             NONE_CODE,
-		"getenv":           31,
-		"setenv":           32,
 	}
 
 	// Channel used to catch results from tasking threads
@@ -405,10 +407,12 @@ func main() {
 				go pwd.Run(task, res)
 			case 29:
 				go rm.Run(task, res)
-			case 31:
+			case 30:
 				go getenv.Run(task, res)
-			case 32:
+			case 31:
 				go setenv.Run(task, res)
+			case 32:
+				go unsetenv.Run(task, res)
 			case NONE_CODE:
 				// No tasks, do nothing
 				break

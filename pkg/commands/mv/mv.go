@@ -9,8 +9,8 @@ import (
 )
 
 type Arguments struct {
-	SourceFile      string `json:"src"`
-	DestinationFile string `json:"dst"`
+	SourceFile      string `json:"source"`
+	DestinationFile string `json:"destination"`
 }
 
 func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {

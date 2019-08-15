@@ -14,6 +14,8 @@ func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
 	tMsg.TaskItem = task
 	tMsg.Error = false
 	parts := strings.SplitAfterN(task.Params, " ", 2)
+	parts[0] = strings.TrimSpace(parts[0])
+	parts[1] = strings.TrimSpace(parts[1])
 	if len(parts) != 2 {
 		tMsg.Error = true
 		tMsg.TaskResult = []byte("Not enough parameters.")
