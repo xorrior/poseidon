@@ -13,56 +13,61 @@ static FILE *cgo_get_stdout(void) { return stdout; }
 static FILE *cgo_get_stderr(void) { return stderr; }
 */
 
-import (
-	"C"
-	"unsafe"
-)
+/*
+Note: Because this is currently not-operational,
+	  lines 21-70 have been commented out.
+*/
 
-type File C.FILE
+// import (
+// 	"C"
+// 	"unsafe"
+// )
 
-type LinuxInjection struct {
-	Target      int
-	Successful  bool
-	Payload     []byte
-	LibraryPath string
-}
+// type File C.FILE
 
-func (l *LinuxInjection) TargetPid() int {
-	return l.Target
-}
+// type LinuxInjection struct {
+// 	Target      int
+// 	Successful  bool
+// 	Payload     []byte
+// 	LibraryPath string
+// }
 
-func (l *LinuxInjection) Success() bool {
-	return l.Successful
-}
+// func (l *LinuxInjection) TargetPid() int {
+// 	return l.Target
+// }
 
-func (l *LinuxInjection) Shellcode() []byte {
-	return l.Payload
-}
+// func (l *LinuxInjection) Success() bool {
+// 	return l.Successful
+// }
 
-func (l *LinuxInjection) SharedLib() string {
-	return l.LibraryPath
-}
+// func (l *LinuxInjection) Shellcode() []byte {
+// 	return l.Payload
+// }
 
-func Open(path, mode string) *File {
-	cpath, cmode := C.CString(path), C.CString(mode)
-	defer C.free(unsafe.Pointer(cpath))
-	defer C.free(unsafe.Pointer(cmode))
+// func (l *LinuxInjection) SharedLib() string {
+// 	return l.LibraryPath
+// }
 
-	return (*File)(C.fopen(cpath, cmode))
-}
+// func Open(path, mode string) *File {
+// 	cpath, cmode := C.CString(path), C.CString(mode)
+// 	defer C.free(unsafe.Pointer(cpath))
+// 	defer C.free(unsafe.Pointer(cmode))
 
-func (f *File) Put(str string) {
-	cstr := C.CString(str)
-	defer C.free(unsafe.Pointer(cstr))
+// 	return (*File)(C.fopen(cpath, cmode))
+// }
 
-	C.fputs(cstr, (*C.FILE)(f))
-	return
-}
+// func (f *File) Put(str string) {
+// 	cstr := C.CString(str)
+// 	defer C.free(unsafe.Pointer(cstr))
 
-func (f *File) Get(n int) string {
-	cbuf := make([]C.char, n)
-	return C.GoString(C.fgets(&cbuf[0], C.int(n), (*C.FILE)(f)))
-}
+// 	C.fputs(cstr, (*C.FILE)(f))
+// 	return
+// }
+
+// func (f *File) Get(n int) string {
+// 	cbuf := make([]C.char, n)
+// 	return C.GoString(C.fgets(&cbuf[0], C.int(n), (*C.FILE)(f)))
+// }
 
 func injectLibrary(pid int, path string) (LinuxInjection, error) {
 	res := LinuxInjection{}
