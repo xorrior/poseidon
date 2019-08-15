@@ -32,6 +32,13 @@ import (
 
 	"github.com/xorrior/poseidon/pkg/commands/cp"
 	"github.com/xorrior/poseidon/pkg/commands/drives"
+	"github.com/xorrior/poseidon/pkg/commands/getenv"
+	"github.com/xorrior/poseidon/pkg/commands/getuser"
+	"github.com/xorrior/poseidon/pkg/commands/mkdir"
+	"github.com/xorrior/poseidon/pkg/commands/mv"
+	"github.com/xorrior/poseidon/pkg/commands/pwd"
+	"github.com/xorrior/poseidon/pkg/commands/rm"
+	"github.com/xorrior/poseidon/pkg/commands/setenv"
 )
 
 const (
@@ -118,7 +125,14 @@ func main() {
 		"jobkill":          22,
 		"cp":               23,
 		"drives":           24,
+		"getuser":          25,
+		"mkdir":            26,
+		"mv":               27,
+		"pwd":              28,
+		"rm":               29,
 		"none":             NONE_CODE,
+		"getenv":           31,
+		"setenv":           32,
 	}
 
 	// Channel used to catch results from tasking threads
@@ -377,6 +391,24 @@ func main() {
 			case 24:
 				// List drives on a machine
 				go drives.Run(task, res)
+			case 25:
+				// Retrieve information about the current user.
+				go getuser.Run(task, res)
+			case 26:
+				// Make a directory
+				go mkdir.Run(task, res)
+			case 27:
+				// Move files
+				go mv.Run(task, res)
+			case 28:
+				// Print working directory
+				go pwd.Run(task, res)
+			case 29:
+				go rm.Run(task, res)
+			case 31:
+				go getenv.Run(task, res)
+			case 32:
+				go setenv.Run(task, res)
 			case NONE_CODE:
 				// No tasks, do nothing
 				break

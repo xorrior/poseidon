@@ -1,4 +1,5 @@
-// +build linux darwin
+// +build linux,darwin
+
 package drives
 
 import (
@@ -20,7 +21,7 @@ func getDrive(path string) Drive {
 	freeBytesPretty := functions.UINT64ByteCountDecimal(freeBytes)
 	totalBytesPretty := functions.UINT64ByteCountDecimal(totalBytes)
 	return Drive{
-		Name:             "/",
+		Name:             path,
 		Description:      "",
 		FreeBytes:        stat.Bavail * uint64(stat.Bsize),
 		TotalBytes:       stat.Blocks * uint64(stat.Bsize),

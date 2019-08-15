@@ -8,7 +8,7 @@ import (
 
 type Drive struct {
 	Name             string `json:"name"`
-	Description      string `json:"descrription"`
+	Description      string `json:"description"`
 	FreeBytes        uint64 `json:"free_bytes"`
 	TotalBytes       uint64 `json:"total_bytes"`
 	FreeBytesPretty  string `json:"free_bytes_pretty"`
