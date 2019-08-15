@@ -25,12 +25,12 @@ Note: Because this is currently not-operational,
 
 // type File C.FILE
 
-// type LinuxInjection struct {
-// 	Target      int
-// 	Successful  bool
-// 	Payload     []byte
-// 	LibraryPath string
-// }
+type LinuxInjection struct {
+	Target      int
+	Successful  bool
+	Payload     []byte
+	LibraryPath string
+}
 
 // func (l *LinuxInjection) TargetPid() int {
 // 	return l.Target
