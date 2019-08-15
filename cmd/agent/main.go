@@ -27,10 +27,24 @@ import (
 	"github.com/xorrior/poseidon/pkg/utils/functions"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
-import "log"
+import (
+	"log"
+
+	"github.com/xorrior/poseidon/pkg/commands/cp"
+	"github.com/xorrior/poseidon/pkg/commands/drives"
+	"github.com/xorrior/poseidon/pkg/commands/getenv"
+	"github.com/xorrior/poseidon/pkg/commands/getuser"
+	"github.com/xorrior/poseidon/pkg/commands/kill"
+	"github.com/xorrior/poseidon/pkg/commands/mkdir"
+	"github.com/xorrior/poseidon/pkg/commands/mv"
+	"github.com/xorrior/poseidon/pkg/commands/pwd"
+	"github.com/xorrior/poseidon/pkg/commands/rm"
+	"github.com/xorrior/poseidon/pkg/commands/setenv"
+	"github.com/xorrior/poseidon/pkg/commands/unsetenv"
+)
 
 const (
-	NONE_CODE = 30
+	NONE_CODE = 100
 	EXIT_CODE = 0
 )
 
@@ -111,6 +125,17 @@ func main() {
 		"execute-assembly": 20,
 		"jobs":             21,
 		"jobkill":          22,
+		"cp":               23,
+		"drives":           24,
+		"getuser":          25,
+		"mkdir":            26,
+		"mv":               27,
+		"pwd":              28,
+		"rm":               29,
+		"getenv":           30,
+		"setenv":           31,
+		"unsetenv":         32,
+		"kill":             33,
 		"none":             NONE_CODE,
 	}
 
@@ -364,6 +389,34 @@ func main() {
 					*threadChan <- *msg
 				}(&res, &tMsg)
 				break
+			case 23:
+				// copy a file!
+				go cp.Run(task, res)
+			case 24:
+				// List drives on a machine
+				go drives.Run(task, res)
+			case 25:
+				// Retrieve information about the current user.
+				go getuser.Run(task, res)
+			case 26:
+				// Make a directory
+				go mkdir.Run(task, res)
+			case 27:
+				// Move files
+				go mv.Run(task, res)
+			case 28:
+				// Print working directory
+				go pwd.Run(task, res)
+			case 29:
+				go rm.Run(task, res)
+			case 30:
+				go getenv.Run(task, res)
+			case 31:
+				go setenv.Run(task, res)
+			case 32:
+				go unsetenv.Run(task, res)
+			case 33:
+				go kill.Run(task, res)
 			case NONE_CODE:
 				// No tasks, do nothing
 				break
