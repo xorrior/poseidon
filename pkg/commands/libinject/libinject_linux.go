@@ -15,7 +15,7 @@ static FILE *cgo_get_stderr(void) { return stderr; }
 
 /*
 Note: Because this is currently not-operational,
-	  lines 21-70 have been commented out.
+	  lines 21-26 and 51-70 have been commented out.
 */
 
 // import (
@@ -32,21 +32,21 @@ type LinuxInjection struct {
 	LibraryPath string
 }
 
-// func (l *LinuxInjection) TargetPid() int {
-// 	return l.Target
-// }
+func (l *LinuxInjection) TargetPid() int {
+	return l.Target
+}
 
-// func (l *LinuxInjection) Success() bool {
-// 	return l.Successful
-// }
+func (l *LinuxInjection) Success() bool {
+	return l.Successful
+}
 
-// func (l *LinuxInjection) Shellcode() []byte {
-// 	return l.Payload
-// }
+func (l *LinuxInjection) Shellcode() []byte {
+	return l.Payload
+}
 
-// func (l *LinuxInjection) SharedLib() string {
-// 	return l.LibraryPath
-// }
+func (l *LinuxInjection) SharedLib() string {
+	return l.LibraryPath
+}
 
 // func Open(path, mode string) *File {
 // 	cpath, cmode := C.CString(path), C.CString(mode)

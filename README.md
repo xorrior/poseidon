@@ -60,7 +60,7 @@ unsetenv            Delete an environment variable.
 | screencapture | &#9745; | &#9745; | &#9745; |
 | download | &#9745; | &#9745; | &#9745; |
 | upload | &#9745; | &#9745; | &#9745; |
-| inject |  | &#9745; | &#9745; |
+| inject |  | &#9745; |  |
 | shinject | &#9745; |  |  |
 | ps | &#9745; | &#9745; | &#9745; |
 | sleep | &#9745; | &#9745; | &#9745; |
