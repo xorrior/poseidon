@@ -391,8 +391,7 @@ func keyLogger() error {
 
 	// check if we found a path to keyboard
 	if len(keyboard) <= 0 {
-		log.Println("No keyboard found...you will need to provide manual input path")
-		return
+		return errors.New("No keyboard found...you will need to provide manual input path")
 	}
 
 	// logrus.Println("Found a keyboard at", keyboard)
