@@ -159,7 +159,8 @@ func main() {
 					- triagedirectory
 					- portscan
 			*/
-			if tasktypes[task.Command] == 16 || tasktypes[task.Command] == 18 || tasktypes[task.Command] == 20 {
+			if tasktypes[task.Command] == 3 || tasktypes[task.Command] == 16 || tasktypes[task.Command] == 18 || tasktypes[task.Command] == 20 {
+				// log.Println("Making a job for", task.Command)
 				job := &structs.Job{
 					KillChannel: make(chan int),
 					Stop:        new(int),
@@ -430,7 +431,7 @@ func main() {
 			select {
 			case toApfell := <-res:
 				for i := 0; i < len(taskSlice); i++ {
-					if taskSlice[i].ID == toApfell.TaskItem.ID {
+					if taskSlice[i].ID == toApfell.TaskItem.ID && !taskSlice[i].Job.Monitoring {
 						if i != (len(taskSlice) - 1) {
 							taskSlice = append(taskSlice[:i], taskSlice[i+1:]...)
 						} else {

