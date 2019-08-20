@@ -7,14 +7,15 @@ import (
 	"time"
 
 	"github.com/xorrior/poseidon/pkg/utils/crypto"
+
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
 
 var (
-	UUID                         = "c28cd55c-b864-4b02-a3c7-df04e48c64c1"
-	ExchangeKeyString            = "F"
-	AesPSK                       = ""
-	BaseURL                      = "http://192.168.193.140:9000/"
+	UUID                         = "UUID"
+	ExchangeKeyString            = "T"
+	AesPSK                       = "AESPSK"
+	BaseURL                      = "http(s)://callback_host:callback_port/"
 	BaseURLs                     = []string{}
 	UserAgent                    = "Mozilla/5.0 (Macintosh; U; Intel Mac OS X; en) AppleWebKit/419.3 (KHTML, like Gecko) Safari/419.3" // Change this value
 	Sleep                        = 10
