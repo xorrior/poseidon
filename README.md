@@ -50,6 +50,7 @@ getuser             List information about the current user.
 getenv              Retrieve current environment variables.
 setenv              Set an environment variable.
 unsetenv            Delete an environment variable.
+keylog              Log keystrokes of a user. Only partially implemented for *nix, as it requires root.
 ```
 
 ## Commands per OS
@@ -87,6 +88,7 @@ unsetenv            Delete an environment variable.
 | getenv | &#9745; | &#9745; | &#9745; |
 | setenv | &#9745; | &#9745; | &#9745; |
 | unsetenv | &#9745; | &#9745; | &#9745; |
+| keylog | &#9745; |  | &#9745; |
 
 ## Killable Jobs
 
@@ -94,3 +96,4 @@ Due to the way Go-routines function, it's difficult if not impossible to kill th
 - `executeassembly`
 - `triagedirectory`
 - `portscan`
+- `keylog`
