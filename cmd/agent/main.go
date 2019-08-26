@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"log"
 
 	"github.com/xorrior/poseidon/pkg/commands/cat"
 	"github.com/xorrior/poseidon/pkg/commands/executeassembly"
@@ -23,13 +24,6 @@ import (
 	"github.com/xorrior/poseidon/pkg/commands/shinject"
 	"github.com/xorrior/poseidon/pkg/commands/sshauth"
 	"github.com/xorrior/poseidon/pkg/commands/triagedirectory"
-	"github.com/xorrior/poseidon/pkg/profiles"
-	"github.com/xorrior/poseidon/pkg/utils/functions"
-	"github.com/xorrior/poseidon/pkg/utils/structs"
-)
-import (
-	"log"
-
 	"github.com/xorrior/poseidon/pkg/commands/cp"
 	"github.com/xorrior/poseidon/pkg/commands/drives"
 	"github.com/xorrior/poseidon/pkg/commands/getenv"
@@ -42,6 +36,10 @@ import (
 	"github.com/xorrior/poseidon/pkg/commands/rm"
 	"github.com/xorrior/poseidon/pkg/commands/setenv"
 	"github.com/xorrior/poseidon/pkg/commands/unsetenv"
+	"github.com/xorrior/poseidon/pkg/profiles"
+	"github.com/xorrior/poseidon/pkg/utils/functions"
+	"github.com/xorrior/poseidon/pkg/utils/structs"
+	
 )
 
 const (

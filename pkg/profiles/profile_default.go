@@ -235,7 +235,8 @@ func (c *C2Default) htmlPostData(urlEnding string, sendData []byte) []byte {
 	//log.Println("Sending POST request to url: ", url)
 	// If the AesPSK is set, encrypt the data we send
 	if len(c.AesPSK) != 0 {
-		sendData = EncryptMessage(sendData)
+		//sendData = EncryptMessage(sendData, c.AesPreSharedKey())
+		sendData = c.encryptMessage(sendData)
 	}
 
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(sendData))
@@ -323,7 +324,7 @@ func (c *C2Default) htmlGetData(url string) []byte {
 
 //NegotiateKey - EKE key negotiation
 func (c *C2Default) NegotiateKey() string {
-	sessionID := c.GenerateSessionID()
+	sessionID := GenerateSessionID()
 	pub, priv := crypto.GenerateRSAKeyPair()
 	c.SetRsaKey(priv)
 	initMessage := structs.EKEInit{}
@@ -473,13 +474,4 @@ func (c *C2Default) decryptMessage(msg []byte) []byte {
 	key, _ := base64.StdEncoding.DecodeString(c.AesPSK)
 	decMsg, _ := base64.StdEncoding.DecodeString(string(msg))
 	return crypto.AesDecrypt(key, decMsg)
-}
-
-func (c *C2Default) GenerateSessionID() string {
-	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, 10)
-	for i := range b {
-		b[i] = letterBytes[seededRand.Intn(len(letterBytes))]
-	}
-	return string(b)
 }
