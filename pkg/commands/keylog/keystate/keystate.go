@@ -107,6 +107,7 @@ func (k *KeyLog) SendMessage() {
 	tMsg := structs.ThreadMsg{}
 	tMsg.Error = false
 	tMsg.TaskItem = *curTask
+	curTask.ID
 	data, err := json.MarshalIndent(serMsg, "", "    ")
 	log.Println("Sending across the wire:", string(data))
 	if err != nil {

