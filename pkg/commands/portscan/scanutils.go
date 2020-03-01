@@ -132,7 +132,7 @@ func (server *host) ScanPort(port int, timeout time.Duration) {
 	}
 
 	if err != nil {
-		if strings.Contains(err.Error(), "too many open files") || strings.Contains(err.Error(), "termorarily unavailable") {
+		if strings.Contains(err.Error(), "too many open files") || strings.Contains(err.Error(), "temporarily unavailable") {
 			time.Sleep(timeout)
 			server.ScanPort(port, timeout)
 		}

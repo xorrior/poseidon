@@ -37,6 +37,9 @@ func (p *DarwinProcess) Owner() string {
 	return p.owner
 }
 
+func (p *DarwinProcess) BinPath() string {
+	return p.binary
+}
 func findProcess(pid int) (Process, error) {
 	ps, err := processes()
 	if err != nil {

