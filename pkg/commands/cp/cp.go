@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 
 	"github.com/xorrior/poseidon/pkg/profiles"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
+
+var mu sync.Mutex
 
 type Arguments struct {
 	Source      string `json:"source"`

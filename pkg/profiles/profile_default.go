@@ -15,6 +15,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/xorrior/poseidon/pkg/utils/crypto"
@@ -22,14 +23,16 @@ import (
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
 
+var mu sync.Mutex
+
 var Config = structs.Defaultconfig{
 	"encrypted_exchange_check",
 	"AESPSK",
 	"callback_host:callback_port/",
 	"USER_AGENT",
-	callback_interval,
+	10,
 	"domain_front",
-	callback_jitter,
+	25,
 }
 
 type C2Default struct {

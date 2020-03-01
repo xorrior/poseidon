@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/tmc/scp"
 	"github.com/xorrior/poseidon/pkg/commands/portscan"
 	"github.com/xorrior/poseidon/pkg/profiles"
 	"github.com/xorrior/poseidon/pkg/utils/structs"

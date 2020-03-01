@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"sort"
+
 	"github.com/xorrior/poseidon/pkg/commands/cat"
 	"github.com/xorrior/poseidon/pkg/commands/cp"
 	"github.com/xorrior/poseidon/pkg/commands/drives"
@@ -36,19 +38,18 @@ import (
 	"github.com/xorrior/poseidon/pkg/profiles"
 	"github.com/xorrior/poseidon/pkg/utils/functions"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
+
+	"github.com/xorrior/poseidon/pkg/commands/curl"
+	"github.com/xorrior/poseidon/pkg/commands/jxa"
+	"github.com/xorrior/poseidon/pkg/commands/xpc"
 )
-import "sort"
 
 const (
 	NONE_CODE = 100
 	EXIT_CODE = 0
 )
 
-var (
-	assemblyFetched int = 0
-	taskSlice       []structs.Task
-)
-
+var taskSlice []structs.Task
 var mu sync.Mutex
 
 //export RunMain
@@ -171,13 +172,11 @@ func main() {
 
 	// Map used to handle go routines that are waiting for a response from apfell to continue
 	backgroundTasks := make(map[string](chan []byte))
-
-	// Channel used to catch results from tasking threads
-	res := make(chan structs.ThreadMsg)
 	//if we have an Active apfell session, enter the tasking loop
 	if strings.Contains(checkIn.Status, "success") {
 	LOOP:
 		for {
+			//log.Println("sleeping")
 			time.Sleep(time.Duration(profile.SleepInterval()) * time.Second)
 
 			// Get the next task
@@ -510,6 +509,18 @@ func main() {
 				}
 			}
 
+			// TODO: Fix this
+			/*for i := 0; i < len(taskSlice); i++ {
+				if taskSlice[i].TaskID == toApfell.TaskItem.TaskID && !taskSlice[i].Job.Monitoring {
+					if i != (len(taskSlice) - 1) {
+						taskSlice = append(taskSlice[:i], taskSlice[i+1:]...)
+					} else {
+						taskSlice = taskSlice[:i]
+					}
+					break
+				}
+			}*/
+
 			// loop through all task responses
 			if len(profiles.TaskResponses) > 0 {
 				responseMsg := structs.TaskResponseMessage{}
@@ -573,6 +584,7 @@ func main() {
 				}
 
 			}
+
 		}
 
 		// loop through all task responses before exiting

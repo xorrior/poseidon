@@ -3,10 +3,13 @@ package cat
 import (
 	"encoding/json"
 	"os"
+	"sync"
 
 	"github.com/xorrior/poseidon/pkg/profiles"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
+
+var mu sync.Mutex
 
 //Run - package function to run cat
 func Run(task structs.Task) {

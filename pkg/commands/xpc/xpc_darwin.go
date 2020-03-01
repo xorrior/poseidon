@@ -2,6 +2,18 @@
 
 package xpc
 
+/*
+#cgo LDFLAGS: -framework Foundation
+#cgo CFLAGS: -Wno-error=implicit-function-declaration
+#include <dispatch/dispatch.h>
+#include <Block.h>
+#include <stdio.h>
+#include <objc/objc.h>
+#include <stdlib.h>
+#include "xpc_wrapper_darwin.h"
+*/
+import "C"
+
 import (
 	"encoding/base64"
 	"encoding/json"
