@@ -2,7 +2,11 @@
 
 package screencapture
 
-import "errors"
+import (
+	"bytes"
+	"errors"
+	"image/png"
+)
 
 //LinuxScreenshot - struct for screenshot data
 type LinuxScreenshot struct {
@@ -21,5 +25,38 @@ func (d *LinuxScreenshot) Data() []byte {
 }
 
 func getscreenshot() ([]ScreenShot, error) {
-	return nil, errors.New("not implemented for linux")
+	n := s.NumActiveDisplays()
+	screens := make([]ScreenShot, n)
+	if n <= 0 {
+		return nil, errors.New("Active display not found")
+	}
+
+	//var all image.Rectangle = image.Rect(0, 0, 0, 0)
+
+	for i := 0; i < n; i++ {
+		bounds := s.GetDisplayBounds(i)
+		//all = bounds.Union(all)
+
+		img, err := s.CaptureRect(bounds)
+		if err != nil {
+			panic(err)
+		}
+		// fileName := fmt.Sprintf("%d_%dx%d.png", i, bounds.Dx(), bounds.Dy())
+		// save(img, fileName)
+
+		buf := new(bytes.Buffer)
+		err = png.Encode(buf, img)
+
+		if err != nil {
+			return nil, err
+		}
+
+		screens[i] = &LinuxScreenshot{
+			MonitorIndex:   i,
+			ScreenshotData: buf.Bytes(),
+		}
+		// fmt.Printf("#%d : %v \"%s\"\n", i, bounds, fileName)
+	}
+
+	return screens, nil
 }

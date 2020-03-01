@@ -4,11 +4,25 @@ package functions
 
 import (
 	"fmt"
+	"os"
+	"os/user"
+	"runtime"
 	"unicode/utf16"
 )
 
 func isElevated() bool {
-	return false
+	currentUser, _ := user.Current()
+	return currentUser.Uid == "0"
+}
+func getArchitecture() string {
+	return runtime.GOARCH
+}
+func getDomain() string {
+	host, _ := os.Hostname()
+	return host
+}
+func getOS() string {
+	return runtime.GOOS
 }
 
 // Helper function to convert DWORD byte counts to

