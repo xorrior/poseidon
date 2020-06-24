@@ -1,6 +1,7 @@
 # Poseidon
 Golang Apfell Agent
 
+Find the latest version of Poseidon in the Apfell framework here: https://github.com/its-a-feature/Apfell
 ## Build Instructions
 
 Fill out the `profile.go` file with your C2 Listener information.
