@@ -39,7 +39,6 @@ triagedirectory     Search target directory for interesting files.
 sshauth             Authenticate to a host or a list of hosts using a username+password/key pair.
 portscan            Scan a target for open ports.
 getprivs            Enable as many privileges as possible for your current access token.
-execute-assembly    Execute a .NET assembly.
 jobs                List currently running and stoppable jobs.
 jobkill             Kill a job by the specified GUID.
 kill                Kill a process designated by PID.
@@ -53,50 +52,44 @@ getuser             List information about the current user.
 getenv              Retrieve current environment variables.
 setenv              Set an environment variable.
 unsetenv            Delete an environment variable.
-keylog              Log keystrokes of a user. Only partially implemented for *nix, as it requires root.
 ```
 
 ## Commands per OS
 
-| Command | Windows | MacOS | Linux |
-| ------- | ------- | ----- | ----- |
-| exit | &#9745; | &#9745; | &#9745; |
-| shell | &#9745; | &#9745; | &#9745; |
-| screencapture | &#9745; | &#9745; | &#9745; |
-| download | &#9745; | &#9745; | &#9745; |
-| upload | &#9745; | &#9745; | &#9745; |
-| inject |  | &#9745; |  |
-| shinject | &#9745; |  |  |
-| ps | &#9745; | &#9745; | &#9745; |
-| sleep | &#9745; | &#9745; | &#9745; |
-| cat | &#9745; | &#9745; | &#9745; |
-| cd | &#9745; | &#9745; | &#9745; |
-| ls | &#9745; | &#9745; | &#9745; |
+| Command | MacOS | Linux |
+| ------- | ----- | ----- |
+| exit | &#9745; | &#9745; |
+| shell | &#9745; | &#9745; |
+| screencapture | &#9745; | &#9745; |
+| download | &#9745; | &#9745; |
+| upload | &#9745; | &#9745; |
+| libinject | &#9745; | |
+| ps | &#9745; | &#9745; |
+| sleep | &#9745; | &#9745; |
+| cat | &#9745; | &#9745; |
+| cd | &#9745; | &#9745; |
+| ls | &#9745; | &#9745; |
 | keys |  | &#9745; | &#9745; |
-| triagedirectory | &#9745; | &#9745; | &#9745; |
-| sshauth | &#9745; | &#9745; | &#9745; |
-| portscan | &#9745; | &#9745; | &#9745; |
-| getprivs | &#9745; |  |  |
-| execute-assembly | &#9745; |  |  |
-| jobs | &#9745; | &#9745; | &#9745; |
-| jobkill | &#9745; | &#9745; | &#9745; |
-| kill |  &#9745; | &#9745; | &#9745; |
-| cp | &#9745; | &#9745; | &#9745; |
-| mv | &#9745; | &#9745; | &#9745; |
-| rm | &#9745; | &#9745; | &#9745; |
-| mkdir | &#9745; | &#9745; | &#9745; |
-| pwd | &#9745; | &#9745; | &#9745; |
-| drives | &#9745; | &#9745; | &#9745; |
-| getuser | &#9745; | &#9745; | &#9745; |
-| getenv | &#9745; | &#9745; | &#9745; |
-| setenv | &#9745; | &#9745; | &#9745; |
-| unsetenv | &#9745; | &#9745; | &#9745; |
-| keylog | &#9745; |  | &#9745; |
+| triagedirectory | &#9745; | &#9745; |
+| sshauth | &#9745; | &#9745; |
+| portscan | &#9745; | &#9745; |
+| getprivs | |  |
+| jobs | &#9745; | &#9745; |
+| jobkill | &#9745; | &#9745; |
+| kill |  &#9745; | &#9745; |
+| cp | &#9745; | &#9745; |
+| mv | &#9745; | &#9745; |
+| rm | &#9745; | &#9745; |
+| mkdir | &#9745; | &#9745; |
+| pwd | &#9745; | &#9745; |
+| drives | &#9745; | &#9745; |
+| getuser | &#9745; | &#9745; |
+| getenv | &#9745; | &#9745; |
+| setenv | &#9745; | &#9745; |
+| unsetenv | &#9745; | &#9745; |
 
 ## Killable Jobs
 
 Due to the way Go-routines function, it's difficult if not impossible to kill them. As a result, only certain long-running tasks are able to receive a "kill" signal. The current list of killable jobs are:
-- `executeassembly`
 - `triagedirectory`
 - `portscan`
-- `keylog`
