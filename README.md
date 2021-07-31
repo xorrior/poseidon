@@ -1,7 +1,7 @@
 # Poseidon
 Golang Apfell Agent
 
-Find the latest version of Poseidon in the Apfell framework here: https://github.com/its-a-feature/Apfell
+Find the latest version of Poseidon in the MythicAgents repository here: https://github.com/MythicAgents/poseidon
 
 I owe a huge thanks to @djhohnstein for his help with this project.
 ## Build Instructions
